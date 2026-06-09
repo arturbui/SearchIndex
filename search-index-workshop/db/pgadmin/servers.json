@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Workshop DB (knuspr)",
+      "Group": "Workshop",
+      "Host": "db",
+      "Port": 5432,
+      "MaintenanceDB": "knuspr",
+      "Username": "workshop",
+      "SSLMode": "prefer",
+      "Comment": "Pre-registered Postgres container. Password: workshop"
+    }
+  }
+}

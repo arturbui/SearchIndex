@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Knuspr Search — Workshop</title>
+<style>
+  :root { --green:#7ab51d; --ink:#1d2b13; --muted:#6b7280; --bg:#f6f8f3; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; background:var(--bg); color:var(--ink); }
+  header { background:var(--green); color:#fff; padding:18px 24px; }
+  header h1 { margin:0; font-size:20px; letter-spacing:.5px; }
+  header span { opacity:.85; font-size:13px; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 20px; }
+  .bar { display:flex; gap:10px; margin-bottom:16px; }
+  #q { flex:1; padding:12px 14px; font-size:16px; border:1px solid #cdd5c3; border-radius:10px; }
+  select { padding:0 12px; border:1px solid #cdd5c3; border-radius:10px; background:#fff; }
+  .meta { color:var(--muted); font-size:13px; margin:6px 2px 14px; }
+  .card { background:#fff; border:1px solid #e6ebe0; border-radius:12px; padding:14px 16px; margin-bottom:10px; }
+  .card h3 { margin:0 0 4px; font-size:16px; }
+  .card .sub { color:var(--muted); font-size:13px; }
+  .card mark { background:#eaf6cf; padding:0 2px; }
+  .price { float:right; font-weight:700; color:var(--green); }
+  .tag { display:inline-block; background:#eef3e6; color:#4d6b22; border-radius:6px; padding:1px 8px; font-size:11px; margin-right:4px; }
+  .oos { color:#b91c1c; font-size:12px; }
+  .empty { color:var(--muted); text-align:center; padding:40px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap"><h1>🛒 Knuspr Search</h1><span>PostgreSQL full-text search demo</span></div>
+</header>
+<div class="wrap">
+  <div class="bar">
+    <input id="q" placeholder="Suche… z. B. „bio milch", „schokolade vegan", „kaffee bohne"" autofocus />
+    <select id="category"><option value="">Alle Kategorien</option></select>
+  </div>
+  <div class="meta" id="meta"></div>
+  <div id="results"></div>
+</div>
+<script>
+const qEl = document.getElementById("q");
+const catEl = document.getElementById("category");
+const resultsEl = document.getElementById("results");
+const metaEl = document.getElementById("meta");
+
+fetch("/api/categories").then(r => r.json()).then(cats => {
+  for (const c of cats) {
+    const o = document.createElement("option"); o.value = c; o.textContent = c; catEl.appendChild(o);
+  }
+}).catch(() => {});
+
+const euro = c => (c / 100).toFixed(2).replace(".", ",") + " €";
+let timer;
+function run() {
+  const q = qEl.value.trim();
+  const category = catEl.value;
+  if (!q) { resultsEl.innerHTML = ""; metaEl.textContent = ""; return; }
+  const t0 = performance.now();
+  const url = "/api/search?q=" + encodeURIComponent(q) + (category ? "&category=" + encodeURIComponent(category) : "");
+  fetch(url).then(r => r.json()).then(({ count, hits }) => {
+    const ms = (performance.now() - t0).toFixed(0);
+    metaEl.textContent = count + " Treffer · " + ms + " ms";
+    if (!hits || hits.length === 0) {
+      resultsEl.innerHTML = '<div class="empty">Keine Treffer. (Schon <code>searchProducts()</code> implementiert?)</div>';
+      return;
+    }
+    resultsEl.innerHTML = hits.map(h => `
+      <div class="card">
+        <span class="price">${euro(h.price_cents)}</span>
+        <h3>${h.name} ${h.in_stock ? "" : '<span class="oos">· nicht verfügbar</span>'}</h3>
+        <div class="sub">${h.brand ?? ""} · ${h.category} › ${h.subcategory} · ${h.unit}</div>
+        <div class="snip">${h.snippet ?? ""}</div>
+      </div>`).join("");
+  }).catch(e => { metaEl.textContent = "Fehler: " + e; });
+}
+qEl.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 180); });
+catEl.addEventListener("change", run);
+</script>
+</body>
+</html>
