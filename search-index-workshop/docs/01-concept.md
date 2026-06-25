@@ -5,17 +5,17 @@ is what it actually is and how it works.*
 
 ## 1. The problem with `LIKE`
 
-A shop search box has to answer "show me products matching *bio milch*". The naive
+A shop search box has to answer "show me products matching *organic milk*". The naive
 relational answer is:
 
 ```sql
-SELECT * FROM products WHERE name ILIKE '%bio milch%';
+SELECT * FROM products WHERE name ILIKE '%organic milk%';
 ```
 
 Three things are wrong with this:
 
-1. **It's a substring match, not a word match.** `'%bio milch%'` only matches if the
-   exact string "bio milch" appears. Our product is *"Bio Frische Vollmilch"* — the
+1. **It's a substring match, not a word match.** `'%organic milk%'` only matches if the
+   exact string "organic milk" appears. Our product is *"Organic Fresh Wholemilk"* — the
    words are there but not adjacent, so this returns **nothing**.
 2. **It can't rank.** Every match is equally "true". There is no notion of *"the word
    is in the product name, so it's more relevant than a word buried in the description"*.
@@ -29,11 +29,11 @@ of rows that contain it*. That's an **inverted index** — the same structure be
 Google, Lucene/Elasticsearch, and Postgres FTS.
 
 ```
-"milch"  -> [12, 88, 415, ...]
-"bio"    -> [3, 12, 415, ...]
+"milk"     -> [12, 88, 415, ...]
+"organic"  -> [3, 12, 415, ...]
 ```
 
-A search for `bio AND milch` becomes a fast intersection of two short lists instead
+A search for `organic AND milk` becomes a fast intersection of two short lists instead
 of a scan over the whole table.
 
 ## 3. How Postgres does it: `tsvector`, `tsquery`, GIN
@@ -41,17 +41,17 @@ of a scan over the whole table.
 Postgres builds this in with three pieces:
 
 - **`tsvector`** — a document reduced to normalized *lexemes* with positions. Building
-  it does three jobs: lowercase + tokenise, drop **stop words** ("und", "der", "mit"),
-  and **stem** words to a root via a language dictionary (`'german'`): *Bohnen → bohn*,
-  *aromatische → aromat*. So "Kaffeebohne" and "Kaffeebohnen" match.
+  it does three jobs: lowercase + tokenise, drop **stop words** ("and", "the", "with"),
+  and **stem** words to a root via a language dictionary (`'english'`): *beans → bean*,
+  *roasted → roast*. So "bean" and "beans" match.
 
   ```sql
-  SELECT to_tsvector('german', 'Frische Bio Vollmilch 3,5%');
-  -- 'bio':2  'frisch':1  'vollmilch':3
+  SELECT to_tsvector('english', 'Fresh roasted coffee beans and aromatic beans');
+  -- 'aromat':6  'bean':4,7  'coffe':3  'fresh':1  'roast':2
   ```
 
 - **`tsquery`** — the search terms, normalised the same way, combined with `&` `|` `!`.
-  For user input we use `websearch_to_tsquery('german', 'bio milch')` → `'bio' & 'milch'`
+  For user input we use `websearch_to_tsquery('english', 'organic milk')` → `'organ' & 'milk'`
   (it also understands quotes and `-exclude`, like a real search box).
 
 - **The match operator `@@`** — `tsvector @@ tsquery` is true when the document
@@ -67,17 +67,17 @@ let Postgres keep it in sync:
 
 ```sql
 search_doc tsvector GENERATED ALWAYS AS (
-  setweight(to_tsvector('german', immutable_unaccent(coalesce(name,''))),        'A') ||
-  setweight(to_tsvector('german', immutable_unaccent(coalesce(brand,''))),       'B') ||
-  setweight(to_tsvector('german', immutable_unaccent(coalesce(category,'')...)), 'C') ||
-  setweight(to_tsvector('german', immutable_unaccent(coalesce(description,''))), 'D')
+  setweight(to_tsvector('english', immutable_unaccent(coalesce(name,''))),        'A') ||
+  setweight(to_tsvector('english', immutable_unaccent(coalesce(brand,''))),       'B') ||
+  setweight(to_tsvector('english', immutable_unaccent(coalesce(category,'')...)), 'C') ||
+  setweight(to_tsvector('english', immutable_unaccent(coalesce(description,''))), 'D')
 ) STORED
 ```
 
 **Field weights A–D.** A hit in the *name* (A) should rank above a hit in the
 *description* (D). `setweight` tags each lexeme; `ts_rank_cd` later uses those weights.
 
-**The `immutable_unaccent` gotcha — the most instructive part.** We want accent/umlaut
+**The `immutable_unaccent` gotcha — the most instructive part.** We want accent
 folding so "Musli" finds "Müsli" and "creme" finds "Crème". The obvious move is to wrap
 the text in `unaccent()`. It fails:
 
@@ -104,9 +104,9 @@ tutorial, and now they'll know why.
 - **Ranking:** `ts_rank_cd(search_doc, query)` → order by relevance.
 - **Highlighting:** `ts_headline(...)` returns the matched snippet with `<mark>` tags.
 - **Typo tolerance:** the `pg_trgm` extension adds trigram **similarity**, so
-  `name % 'Schoklade'` still finds "Schokolade". We use it as a fallback when full-text
+  `name % 'Choclate'` still finds "Chocolate". We use it as a fallback when full-text
   returns nothing.
-- **Autocomplete:** prefix queries with `to_tsquery('german','haf:*')`.
+- **Autocomplete:** prefix queries with `to_tsquery('english','oat:*')`.
 
 ## 6. Honest limits — when *not* to use Postgres FTS
 
@@ -117,10 +117,10 @@ rows, and you want one system, ACID-consistent, no extra moving parts.
 Reach for a dedicated engine (Elasticsearch / OpenSearch / Typesense / Meilisearch)
 when you need:
 
-- **Compound-word splitting / heavy linguistics out of the box.** German is the classic
-  case: by default `to_tsvector('german', 'Hafermilch')` is the single lexeme
-  `hafermilch`, so a search for `milch` *won't* match it. Real engines (or a Postgres
-  `ispell`/GermanCompoundWords dictionary, which is extra setup) split compounds.
+- **Compound-word splitting / heavy linguistics out of the box.** Compound product
+  names are the classic case: by default `to_tsvector('english', 'Wholemilk')` is the
+  single lexeme `wholemilk`, so a search for `milk` *won't* match it. Real engines (or
+  a Postgres `ispell`/compound-word dictionary, which is extra setup) split compounds.
 - **Typo tolerance as a first-class feature**, fuzzy ranking, synonyms, did-you-mean.
 - **Horizontal scale** to tens of millions+ of docs with high query volume, or
   near-real-time analytics/aggregations over text.

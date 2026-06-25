@@ -29,10 +29,10 @@ export async function searchProducts({ q, category, limit = 20 }: SearchParams):
   const sql = `
     SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
            ts_rank_cd(search_doc, q)                            AS rank,
-           ts_headline('german', description, q,
+           ts_headline('english', description, q,
              'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=16, MinWords=6') AS snippet
     FROM products,
-         websearch_to_tsquery('german', immutable_unaccent($1)) AS q
+         websearch_to_tsquery('english', immutable_unaccent($1)) AS q
     WHERE search_doc @@ q
       AND ($2::text IS NULL OR category = $2)
     ORDER BY rank DESC, in_stock DESC, name
@@ -63,9 +63,18 @@ async function fuzzySearch(q: string, category: string | undefined, limit: numbe
 export async function suggest(prefix: string, limit = 8): Promise<string[]> {
   if (!prefix.trim()) return [];
   const { rows } = await pool.query<{ name: string }>(
-    `SELECT DISTINCT name FROM products
-     WHERE immutable_unaccent(name) ILIKE immutable_unaccent($1) || '%'
-     ORDER BY name LIMIT $2`,
+    `SELECT name FROM (
+       SELECT DISTINCT name FROM products
+       WHERE immutable_unaccent(name) ILIKE '%' || immutable_unaccent($1) || '%'
+     ) matches
+     ORDER BY
+       CASE
+         WHEN immutable_unaccent(name) ILIKE immutable_unaccent($1) || '%' THEN 0
+         WHEN immutable_unaccent(name) ILIKE '% ' || immutable_unaccent($1) || '%' THEN 1
+         ELSE 2
+       END,
+       length(name), name
+     LIMIT $2`,
     [prefix, limit],
   );
   return rows.map((r) => r.name);

@@ -9,7 +9,7 @@
 
 import { pool } from "../src/db.ts";
 
-const TERMS = ["bio milch", "hafer", "schokolade vegan", "kaffee bohne", "glutenfrei brot"];
+const TERMS = ["organic milk", "oat", "chocolate vegan", "coffee bean", "glutenfree bread"];
 const RUNS = 5;
 
 async function timeit(sql: string, params: unknown[]): Promise<{ ms: number; rows: number }> {
@@ -33,11 +33,11 @@ const ILIKE_SQL = `
 
 const FTS_SQL = `
   SELECT id FROM products
-  WHERE search_doc @@ websearch_to_tsquery('german', immutable_unaccent($1))`;
+  WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent($1))`;
 
 async function main() {
   const { rows: [{ count }] } = await pool.query("SELECT count(*)::int AS count FROM products");
-  console.log(`\nDataset: ${Number(count).toLocaleString("de-DE")} products | ${RUNS} runs per query\n`);
+  console.log(`\nDataset: ${Number(count).toLocaleString("en-US")} products | ${RUNS} runs per query\n`);
   console.log("term".padEnd(20), "ILIKE (ms)".padStart(12), "FTS (ms)".padStart(12), "speedup".padStart(10), "  ILIKE/FTS rows");
   console.log("-".repeat(80));
 

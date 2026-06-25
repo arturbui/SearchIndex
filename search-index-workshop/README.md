@@ -2,7 +2,8 @@
 
 > A 3-hour, hands-on workshop. Our "search index" is **PostgreSQL's own full-text
 > search** (a `tsvector` column backed by a **GIN** index), built over a
-> Knuspr-style online grocery catalog. Stack: **Docker · pgAdmin 4 · TypeScript**.
+> Knuspr-style online grocery catalog. Stack: **Docker · TypeScript** (pgAdmin 4
+> is used only for the live demo in Block 2 — the tutorial is hands-on coding).
 
 The whole point: a search index is not a separate product you bolt on — Postgres
 *is* a competent search engine if you know which knobs to turn. We show where that
@@ -22,7 +23,7 @@ holds up, and (honestly) where it doesn't.
 
 ```bash
 cp .env.example .env
-docker compose up -d            # Postgres + pgAdmin 4
+docker compose up -d            # Postgres only
 npm install
 npm run generate -- 60000       # AI-style generated grocery catalog -> data/products.json
 npm run seed                    # schema + bulk load
@@ -30,13 +31,17 @@ cp solutions/search.ts src/search.ts   # use the finished search code
 npm run dev                     # http://localhost:3000
 ```
 
+For the Block 2 demo only, start pgAdmin too:
+```bash
+docker compose --profile demo up -d
+```
 pgAdmin: <http://localhost:5050> (login `admin@workshop.local` / `workshop`; the
 "Workshop DB" server is pre-registered, password `workshop`).
 
 ## Repo layout
 
 ```
-docker-compose.yml      Postgres 16 + pgAdmin 4
+docker-compose.yml      Postgres 16 + pgAdmin 4 (demo-only, `--profile demo`)
 db/
   init/00-extensions.sql  auto-run on first boot: unaccent, pg_trgm, immutable_unaccent()
   schema.sql              products table + GIN/trigram indexes (the search index)
@@ -68,5 +73,5 @@ docs/                       the three workshop blocks
 
 ## Requirements
 
-Docker Desktop, Node ≥ 20, and any editor. Nothing else to install — Postgres and
-pgAdmin run in containers.
+Docker Desktop, Node ≥ 20, and any editor. Nothing else to install — Postgres
+(and, for the demo only, pgAdmin) run in containers.

@@ -1,11 +1,11 @@
 // Domain vocabulary for a Knuspr-style online grocery store.
 // Curated by hand so generated products read like a real supermarket catalog
-// (German category names, real-sounding brands, sensible units & price ranges).
+// (English category names, real-sounding brands, sensible units & price ranges).
 
 export interface Archetype {
-  base: string;            // core product noun, e.g. "Hafermilch"
+  base: string;            // core product noun, e.g. "Oatmilk"
   units: string[];         // plausible pack sizes
-  priceRange: [number, number]; // euros, min..max
+  priceRange: [number, number]; // dollars, min..max
   descParts: string[];     // adjectives/claims used to build a description
   tags: string[];
 }
@@ -17,159 +17,159 @@ export interface CategoryDef {
   archetypes: Archetype[];
 }
 
-// Adjectives that get mixed into product names (some German, some marketing-y).
+// Adjectives that get mixed into product names (some marketing-y).
 export const NAME_PREFIXES = [
-  "", "", "", "Bio", "Bio", "Frische", "Premium", "Regionale", "Hofgut",
-  "Klassische", "Feinste", "Original", "Hausgemachte",
+  "", "", "", "Organic", "Organic", "Fresh", "Premium", "Local", "Farmhouse",
+  "Classic", "Finest", "Original", "Homemade",
 ];
 
-export const BIO_BRANDS = ["dmBio", "Alnatura", "demeter", "Bioland", "Knuspr Bio"];
+export const BIO_BRANDS = ["WholeFoods Organic", "NatureFresh", "GreenValley", "FarmBio", "Knuspr Organic"];
 
 export const CATALOG: CategoryDef[] = [
   {
-    category: "Obst & Gemüse",
-    subcategory: "Obst",
-    brands: ["Knuspr", "Regional", "Edeka Bio", "Alnatura"],
+    category: "Fruits & Vegetables",
+    subcategory: "Fruit",
+    brands: ["Knuspr", "Local Harvest", "NatureFresh", "GreenValley"],
     archetypes: [
-      { base: "Äpfel Elstar", units: ["1 kg", "2 kg", "750 g"], priceRange: [1.9, 4.5], descParts: ["knackig", "süß-säuerlich", "aus regionalem Anbau"], tags: ["obst", "vegan", "regional"] },
-      { base: "Bananen", units: ["1 kg", "5 Stück"], priceRange: [1.2, 2.8], descParts: ["fair gehandelt", "vollreif", "aus Ecuador"], tags: ["obst", "vegan", "fairtrade"] },
-      { base: "Erdbeeren", units: ["500 g", "250 g"], priceRange: [2.5, 5.9], descParts: ["sonnengereift", "aromatisch", "saisonal"], tags: ["obst", "vegan", "saisonal"] },
-      { base: "Bio-Zitronen", units: ["500 g", "4 Stück"], priceRange: [1.8, 3.4], descParts: ["unbehandelte Schale", "spritzig"], tags: ["obst", "bio", "vegan"] },
-      { base: "Heidelbeeren", units: ["125 g", "250 g"], priceRange: [2.2, 4.8], descParts: ["antioxidantienreich", "handverlesen"], tags: ["obst", "vegan", "superfood"] },
+      { base: "Elstar Apples", units: ["1 kg", "2 kg", "750 g"], priceRange: [1.9, 4.5], descParts: ["crisp", "sweet-tart", "from local orchards"], tags: ["fruit", "vegan", "local"] },
+      { base: "Bananas", units: ["1 kg", "5 pieces"], priceRange: [1.2, 2.8], descParts: ["fair trade", "perfectly ripe", "from Ecuador"], tags: ["fruit", "vegan", "fairtrade"] },
+      { base: "Strawberries", units: ["500 g", "250 g"], priceRange: [2.5, 5.9], descParts: ["sun-ripened", "aromatic", "seasonal"], tags: ["fruit", "vegan", "seasonal"] },
+      { base: "Organic Lemons", units: ["500 g", "4 pieces"], priceRange: [1.8, 3.4], descParts: ["untreated peel", "zesty"], tags: ["fruit", "organic", "vegan"] },
+      { base: "Blueberries", units: ["125 g", "250 g"], priceRange: [2.2, 4.8], descParts: ["rich in antioxidants", "hand-picked"], tags: ["fruit", "vegan", "superfood"] },
     ],
   },
   {
-    category: "Obst & Gemüse",
-    subcategory: "Gemüse",
-    brands: ["Knuspr", "Regional", "demeter", "Bioland"],
+    category: "Fruits & Vegetables",
+    subcategory: "Vegetables",
+    brands: ["Knuspr", "Local Harvest", "GreenValley", "FarmBio"],
     archetypes: [
-      { base: "Tomaten Rispe", units: ["500 g", "1 kg"], priceRange: [1.8, 3.9], descParts: ["am Strauch gereift", "aromatisch"], tags: ["gemüse", "vegan"] },
-      { base: "Karotten", units: ["1 kg", "500 g", "2 kg"], priceRange: [0.9, 2.4], descParts: ["knackig", "vitaminreich", "regional"], tags: ["gemüse", "vegan", "regional"] },
-      { base: "Avocado", units: ["2 Stück", "1 Stück"], priceRange: [1.5, 3.9], descParts: ["genussreif", "cremig"], tags: ["gemüse", "vegan"] },
-      { base: "Bio-Kartoffeln festkochend", units: ["1.5 kg", "2.5 kg"], priceRange: [1.6, 3.8], descParts: ["festkochend", "aus Deutschland"], tags: ["gemüse", "bio", "vegan"] },
-      { base: "Babyspinat", units: ["200 g", "125 g"], priceRange: [1.4, 2.9], descParts: ["zart", "gewaschen", "verzehrfertig"], tags: ["gemüse", "vegan"] },
+      { base: "Vine Tomatoes", units: ["500 g", "1 kg"], priceRange: [1.8, 3.9], descParts: ["vine-ripened", "aromatic"], tags: ["vegetable", "vegan"] },
+      { base: "Carrots", units: ["1 kg", "500 g", "2 kg"], priceRange: [0.9, 2.4], descParts: ["crisp", "rich in vitamins", "local"], tags: ["vegetable", "vegan", "local"] },
+      { base: "Avocado", units: ["2 pieces", "1 piece"], priceRange: [1.5, 3.9], descParts: ["ready to eat", "creamy"], tags: ["vegetable", "vegan"] },
+      { base: "Organic Potatoes Waxy", units: ["1.5 kg", "2.5 kg"], priceRange: [1.6, 3.8], descParts: ["waxy", "grown locally"], tags: ["vegetable", "organic", "vegan"] },
+      { base: "Baby Spinach", units: ["200 g", "125 g"], priceRange: [1.4, 2.9], descParts: ["tender", "washed", "ready to eat"], tags: ["vegetable", "vegan"] },
     ],
   },
   {
-    category: "Milchprodukte & Eier",
-    subcategory: "Milch & Drinks",
-    brands: ["Weihenstephan", "Berchtesgadener Land", "Landliebe", "Oatly", "Alpro", "dmBio"],
+    category: "Dairy & Eggs",
+    subcategory: "Milk & Drinks",
+    brands: ["Meadowfresh", "Highland Dairy", "Landliebe", "Oatly", "Alpro", "NatureFresh"],
     archetypes: [
-      { base: "Frische Vollmilch 3,5%", units: ["1 L"], priceRange: [1.0, 1.8], descParts: ["aus Weidehaltung", "länger frisch"], tags: ["milch", "kühlware"] },
-      { base: "Haferdrink Barista", units: ["1 L"], priceRange: [1.6, 2.9], descParts: ["aufschäumbar", "pflanzlich", "ohne Zuckerzusatz"], tags: ["milchalternative", "vegan"] },
-      { base: "Mandeldrink ungesüßt", units: ["1 L"], priceRange: [1.7, 3.2], descParts: ["pflanzlich", "kalorienarm"], tags: ["milchalternative", "vegan"] },
-      { base: "Laktosefreie Milch", units: ["1 L"], priceRange: [1.3, 2.2], descParts: ["bekömmlich", "laktosefrei"], tags: ["milch", "laktosefrei"] },
+      { base: "Fresh Wholemilk 3.5%", units: ["1 L"], priceRange: [1.0, 1.8], descParts: ["from pasture-raised cows", "stays fresh longer"], tags: ["milk", "chilled"] },
+      { base: "Oatmilk Barista", units: ["1 L"], priceRange: [1.6, 2.9], descParts: ["frothable", "plant-based", "no added sugar"], tags: ["milk-alternative", "vegan"] },
+      { base: "Almondmilk Unsweetened", units: ["1 L"], priceRange: [1.7, 3.2], descParts: ["plant-based", "low calorie"], tags: ["milk-alternative", "vegan"] },
+      { base: "Lactosefree Milk", units: ["1 L"], priceRange: [1.3, 2.2], descParts: ["easy to digest", "lactose-free"], tags: ["milk", "lactosefree"] },
     ],
   },
   {
-    category: "Milchprodukte & Eier",
-    subcategory: "Joghurt & Quark",
-    brands: ["Ehrmann", "Danone", "Landliebe", "Andechser", "dmBio"],
+    category: "Dairy & Eggs",
+    subcategory: "Yogurt & Quark",
+    brands: ["Ehrmann", "Danone", "Landliebe", "Andechser", "NatureFresh"],
     archetypes: [
-      { base: "Naturjoghurt 3,8%", units: ["500 g", "1 kg"], priceRange: [0.9, 2.4], descParts: ["cremig", "mild"], tags: ["joghurt", "kühlware"] },
-      { base: "Griechischer Joghurt", units: ["400 g", "1 kg"], priceRange: [1.4, 3.2], descParts: ["proteinreich", "extra cremig"], tags: ["joghurt", "protein"] },
-      { base: "Skyr Vanille", units: ["450 g", "150 g"], priceRange: [1.0, 2.6], descParts: ["fettarm", "proteinreich", "isländische Art"], tags: ["joghurt", "protein"] },
-      { base: "Magerquark", units: ["500 g", "250 g"], priceRange: [0.8, 1.9], descParts: ["proteinreich", "fettarm"], tags: ["quark", "protein"] },
+      { base: "Natural Yogurt 3.8%", units: ["500 g", "1 kg"], priceRange: [0.9, 2.4], descParts: ["creamy", "mild"], tags: ["yogurt", "chilled"] },
+      { base: "Greek Yogurt", units: ["400 g", "1 kg"], priceRange: [1.4, 3.2], descParts: ["high in protein", "extra creamy"], tags: ["yogurt", "protein"] },
+      { base: "Skyr Vanilla", units: ["450 g", "150 g"], priceRange: [1.0, 2.6], descParts: ["low fat", "high in protein", "Icelandic style"], tags: ["yogurt", "protein"] },
+      { base: "Low-fat Quark", units: ["500 g", "250 g"], priceRange: [0.8, 1.9], descParts: ["high in protein", "low fat"], tags: ["quark", "protein"] },
     ],
   },
   {
-    category: "Milchprodukte & Eier",
-    subcategory: "Käse",
+    category: "Dairy & Eggs",
+    subcategory: "Cheese",
     brands: ["Bergader", "Président", "Gouda Holland", "Hochland", "Galbani"],
     archetypes: [
-      { base: "Gouda jung am Stück", units: ["300 g", "500 g"], priceRange: [2.2, 5.9], descParts: ["mild", "schnittfest"], tags: ["käse", "kühlware"] },
-      { base: "Mozzarella", units: ["125 g", "2 x 125 g"], priceRange: [0.8, 2.4], descParts: ["für Salat & Pizza", "in Lake"], tags: ["käse", "vegetarisch"] },
-      { base: "Bergkäse gereift", units: ["200 g", "400 g"], priceRange: [3.5, 7.9], descParts: ["würzig", "12 Monate gereift"], tags: ["käse"] },
-      { base: "Feta", units: ["200 g"], priceRange: [1.6, 3.4], descParts: ["aus Schafsmilch", "kräftig"], tags: ["käse"] },
+      { base: "Young Gouda Block", units: ["300 g", "500 g"], priceRange: [2.2, 5.9], descParts: ["mild", "firm"], tags: ["cheese", "chilled"] },
+      { base: "Mozzarella", units: ["125 g", "2 x 125 g"], priceRange: [0.8, 2.4], descParts: ["for salad & pizza", "in brine"], tags: ["cheese", "vegetarian"] },
+      { base: "Aged Mountain Cheese", units: ["200 g", "400 g"], priceRange: [3.5, 7.9], descParts: ["full-flavored", "aged 12 months"], tags: ["cheese"] },
+      { base: "Feta", units: ["200 g"], priceRange: [1.6, 3.4], descParts: ["made from sheep's milk", "tangy"], tags: ["cheese"] },
     ],
   },
   {
-    category: "Brot & Backwaren",
-    subcategory: "Brot",
-    brands: ["Harry", "Mestemacher", "Knuspr Bäckerei", "Bauck Hof"],
+    category: "Bread & Bakery",
+    subcategory: "Bread",
+    brands: ["Harry", "Mestemacher", "Knuspr Bakery", "Bauck Hof"],
     archetypes: [
-      { base: "Roggenmischbrot", units: ["750 g", "500 g"], priceRange: [1.4, 3.2], descParts: ["saftig", "im Steinofen gebacken"], tags: ["brot"] },
-      { base: "Vollkorn-Toast", units: ["500 g"], priceRange: [1.1, 2.4], descParts: ["ballaststoffreich", "ohne Konservierungsstoffe"], tags: ["brot"] },
-      { base: "Dinkel-Sauerteigbrot", units: ["750 g"], priceRange: [2.2, 4.5], descParts: ["lange Teigführung", "kräftig"], tags: ["brot"] },
-      { base: "Glutenfreies Mehrkornbrot", units: ["400 g"], priceRange: [2.8, 4.9], descParts: ["glutenfrei", "saftig"], tags: ["brot", "glutenfrei"] },
+      { base: "Rye Mixed Bread", units: ["750 g", "500 g"], priceRange: [1.4, 3.2], descParts: ["moist", "stone-baked"], tags: ["bread"] },
+      { base: "Wholegrain Toast", units: ["500 g"], priceRange: [1.1, 2.4], descParts: ["high in fiber", "no preservatives"], tags: ["bread"] },
+      { base: "Spelt Sourdough Bread", units: ["750 g"], priceRange: [2.2, 4.5], descParts: ["long fermentation", "full-flavored"], tags: ["bread"] },
+      { base: "Glutenfree Multigrain Bread", units: ["400 g"], priceRange: [2.8, 4.9], descParts: ["gluten-free", "moist"], tags: ["bread", "glutenfree"] },
     ],
   },
   {
-    category: "Getränke",
-    subcategory: "Wasser & Softdrinks",
+    category: "Beverages",
+    subcategory: "Water & Soft Drinks",
     brands: ["Gerolsteiner", "Coca-Cola", "Fritz-Kola", "Adelholzener", "Volvic"],
     archetypes: [
-      { base: "Mineralwasser Classic", units: ["6 x 1 L", "12 x 0,5 L"], priceRange: [3.9, 7.5], descParts: ["spritzig", "mit Kohlensäure"], tags: ["getränk", "wasser"] },
-      { base: "Cola Zero", units: ["6 x 0,33 L", "1,5 L"], priceRange: [4.5, 8.9], descParts: ["ohne Zucker", "koffeinhaltig"], tags: ["getränk", "softdrink"] },
-      { base: "Apfelschorle", units: ["6 x 1 L"], priceRange: [3.5, 6.9], descParts: ["erfrischend", "naturtrüb"], tags: ["getränk", "schorle"] },
+      { base: "Mineral Water Classic", units: ["6 x 1 L", "12 x 0.5 L"], priceRange: [3.9, 7.5], descParts: ["sparkling", "carbonated"], tags: ["drink", "water"] },
+      { base: "Cola Zero", units: ["6 x 0.33 L", "1.5 L"], priceRange: [4.5, 8.9], descParts: ["no sugar", "caffeinated"], tags: ["drink", "softdrink"] },
+      { base: "Apple Spritzer", units: ["6 x 1 L"], priceRange: [3.5, 6.9], descParts: ["refreshing", "cloudy, naturally pressed"], tags: ["drink", "spritzer"] },
     ],
   },
   {
-    category: "Getränke",
-    subcategory: "Kaffee & Tee",
+    category: "Beverages",
+    subcategory: "Coffee & Tea",
     brands: ["Dallmayr", "Lavazza", "Melitta", "Teekanne", "Meßmer"],
     archetypes: [
-      { base: "Caffè Crema ganze Bohne", units: ["1 kg", "500 g"], priceRange: [7.9, 16.9], descParts: ["vollmundig", "100% Arabica"], tags: ["kaffee"] },
-      { base: "Espresso gemahlen", units: ["250 g", "500 g"], priceRange: [3.9, 8.9], descParts: ["kräftig", "italienische Röstung"], tags: ["kaffee"] },
-      { base: "Grüner Tee Sencha", units: ["20 Beutel"], priceRange: [1.9, 4.5], descParts: ["aromatisch", "belebend"], tags: ["tee"] },
+      { base: "Caffè Crema Whole Bean", units: ["1 kg", "500 g"], priceRange: [7.9, 16.9], descParts: ["full-bodied", "100% Arabica"], tags: ["coffee"] },
+      { base: "Espresso Ground", units: ["250 g", "500 g"], priceRange: [3.9, 8.9], descParts: ["strong", "Italian roast"], tags: ["coffee"] },
+      { base: "Green Tea Sencha", units: ["20 bags"], priceRange: [1.9, 4.5], descParts: ["aromatic", "invigorating"], tags: ["tea"] },
     ],
   },
   {
-    category: "Vorratskammer",
-    subcategory: "Nudeln, Reis & Co.",
-    brands: ["Barilla", "De Cecco", "Oryza", "Alnatura", "Mueller's"],
+    category: "Pantry",
+    subcategory: "Pasta, Rice & Grains",
+    brands: ["Barilla", "De Cecco", "Oryza", "NatureFresh", "Mueller's"],
     archetypes: [
-      { base: "Spaghetti No.5", units: ["500 g", "1 kg"], priceRange: [0.9, 2.6], descParts: ["aus Hartweizengrieß", "al dente"], tags: ["nudeln", "vegan"] },
-      { base: "Basmati Reis", units: ["1 kg", "500 g"], priceRange: [2.2, 5.4], descParts: ["langkörnig", "duftend"], tags: ["reis", "vegan"] },
-      { base: "Vollkorn-Penne", units: ["500 g"], priceRange: [1.2, 2.9], descParts: ["ballaststoffreich", "bissfest"], tags: ["nudeln", "vegan"] },
-      { base: "Rote Linsen", units: ["500 g", "250 g"], priceRange: [1.4, 3.2], descParts: ["proteinreich", "schnell gar"], tags: ["hülsenfrüchte", "vegan"] },
+      { base: "Spaghetti No.5", units: ["500 g", "1 kg"], priceRange: [0.9, 2.6], descParts: ["made from durum wheat", "al dente"], tags: ["pasta", "vegan"] },
+      { base: "Basmati Rice", units: ["1 kg", "500 g"], priceRange: [2.2, 5.4], descParts: ["long-grain", "fragrant"], tags: ["rice", "vegan"] },
+      { base: "Wholegrain Penne", units: ["500 g"], priceRange: [1.2, 2.9], descParts: ["high in fiber", "firm to the bite"], tags: ["pasta", "vegan"] },
+      { base: "Red Lentils", units: ["500 g", "250 g"], priceRange: [1.4, 3.2], descParts: ["high in protein", "quick-cooking"], tags: ["legumes", "vegan"] },
     ],
   },
   {
-    category: "Süßes & Salziges",
-    subcategory: "Schokolade & Riegel",
+    category: "Snacks & Sweets",
+    subcategory: "Chocolate & Bars",
     brands: ["Ritter Sport", "Milka", "Lindt", "Kinder", "Vego"],
     archetypes: [
-      { base: "Vollmilch-Schokolade", units: ["100 g", "2 x 100 g"], priceRange: [0.9, 2.9], descParts: ["zartschmelzend", "Alpenmilch"], tags: ["schokolade", "süßigkeiten"] },
-      { base: "Zartbitter 70%", units: ["100 g"], priceRange: [1.2, 3.4], descParts: ["intensiv", "kakaoreich"], tags: ["schokolade"] },
-      { base: "Haselnuss-Riegel", units: ["5er Pack"], priceRange: [1.6, 3.9], descParts: ["knackig", "für unterwegs"], tags: ["riegel", "snack"] },
+      { base: "Wholemilk Chocolate", units: ["100 g", "2 x 100 g"], priceRange: [0.9, 2.9], descParts: ["melts in your mouth", "alpine milk"], tags: ["chocolate", "sweets"] },
+      { base: "Dark Chocolate 70%", units: ["100 g"], priceRange: [1.2, 3.4], descParts: ["intense", "rich in cocoa"], tags: ["chocolate"] },
+      { base: "Hazelnut Bar", units: ["5-pack"], priceRange: [1.6, 3.9], descParts: ["crunchy", "on the go"], tags: ["bar", "snack"] },
     ],
   },
   {
-    category: "Tiefkühl",
-    subcategory: "Pizza & Fertiggerichte",
+    category: "Frozen",
+    subcategory: "Pizza & Ready Meals",
     brands: ["Dr. Oetker", "Wagner", "Frosta", "Gustavo Gusto"],
     archetypes: [
-      { base: "Steinofen-Pizza Margherita", units: ["350 g", "400 g"], priceRange: [2.2, 5.9], descParts: ["dünner Boden", "mit Mozzarella"], tags: ["tiefkühl", "pizza", "vegetarisch"] },
-      { base: "Gemüsepfanne", units: ["480 g"], priceRange: [2.4, 4.9], descParts: ["ohne Zusatzstoffe", "in 8 Minuten fertig"], tags: ["tiefkühl", "vegan"] },
-      { base: "Pommes frites Backofen", units: ["750 g", "1 kg"], priceRange: [1.8, 3.9], descParts: ["knusprig", "fettarm zubereitbar"], tags: ["tiefkühl", "vegan"] },
+      { base: "Stone-Baked Pizza Margherita", units: ["350 g", "400 g"], priceRange: [2.2, 5.9], descParts: ["thin crust", "with mozzarella"], tags: ["frozen", "pizza", "vegetarian"] },
+      { base: "Vegetable Stir-Fry Mix", units: ["480 g"], priceRange: [2.4, 4.9], descParts: ["no additives", "ready in 8 minutes"], tags: ["frozen", "vegan"] },
+      { base: "Oven Fries", units: ["750 g", "1 kg"], priceRange: [1.8, 3.9], descParts: ["crispy", "low-fat preparation"], tags: ["frozen", "vegan"] },
     ],
   },
   {
-    category: "Fleisch & Fisch",
-    subcategory: "Fleisch & Geflügel",
-    brands: ["Knuspr Metzgerei", "Wiesenhof", "Landjunker", "Bioland"],
+    category: "Meat & Fish",
+    subcategory: "Meat & Poultry",
+    brands: ["Knuspr Butchery", "Wiesenhof", "Landjunker", "FarmBio"],
     archetypes: [
-      { base: "Hähnchenbrustfilet", units: ["400 g", "1 kg"], priceRange: [3.9, 9.9], descParts: ["zart", "aus Bodenhaltung"], tags: ["fleisch", "geflügel", "protein"] },
-      { base: "Rinderhackfleisch", units: ["400 g", "500 g"], priceRange: [3.4, 7.9], descParts: ["frisch", "mager"], tags: ["fleisch", "protein"] },
+      { base: "Chicken Breast Fillet", units: ["400 g", "1 kg"], priceRange: [3.9, 9.9], descParts: ["tender", "free-range"], tags: ["meat", "poultry", "protein"] },
+      { base: "Ground Beef", units: ["400 g", "500 g"], priceRange: [3.4, 7.9], descParts: ["fresh", "lean"], tags: ["meat", "protein"] },
     ],
   },
   {
-    category: "Fleisch & Fisch",
-    subcategory: "Vegane Alternativen",
+    category: "Meat & Fish",
+    subcategory: "Plant-Based Alternatives",
     brands: ["Rügenwalder Mühle", "Beyond Meat", "Garden Gourmet", "LikeMeat"],
     archetypes: [
-      { base: "Veganes Hack", units: ["350 g"], priceRange: [2.4, 4.9], descParts: ["auf Erbsenbasis", "proteinreich"], tags: ["vegan", "fleischersatz", "protein"] },
-      { base: "Vegane Bratwurst", units: ["4 Stück"], priceRange: [2.2, 4.5], descParts: ["pflanzlich", "saftig"], tags: ["vegan", "fleischersatz"] },
+      { base: "Vegan Ground Meat", units: ["350 g"], priceRange: [2.4, 4.9], descParts: ["pea-based", "high in protein"], tags: ["vegan", "meatalternative", "protein"] },
+      { base: "Vegan Bratwurst", units: ["4 pieces"], priceRange: [2.2, 4.5], descParts: ["plant-based", "juicy"], tags: ["vegan", "meatalternative"] },
     ],
   },
   {
-    category: "Drogerie",
-    subcategory: "Körperpflege",
+    category: "Personal Care",
+    subcategory: "Body Care",
     brands: ["Nivea", "Balea", "Sebamed", "Weleda", "dm"],
     archetypes: [
-      { base: "Duschgel Sensitive", units: ["250 ml", "500 ml"], priceRange: [0.9, 3.9], descParts: ["pH-hautneutral", "ohne Mikroplastik"], tags: ["drogerie", "pflege"] },
-      { base: "Handseife Nachfüllpack", units: ["500 ml"], priceRange: [1.4, 3.9], descParts: ["pflegend", "sparsam"], tags: ["drogerie", "pflege"] },
+      { base: "Shower Gel Sensitive", units: ["250 ml", "500 ml"], priceRange: [0.9, 3.9], descParts: ["pH-skin-neutral", "microplastic-free"], tags: ["personalcare", "care"] },
+      { base: "Hand Soap Refill", units: ["500 ml"], priceRange: [1.4, 3.9], descParts: ["nourishing", "economical"], tags: ["personalcare", "care"] },
     ],
   },
 ];

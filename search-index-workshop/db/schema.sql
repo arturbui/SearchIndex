@@ -29,11 +29,11 @@ CREATE TABLE IF NOT EXISTS products (
   -- every INSERT/UPDATE -- no triggers to maintain. We weight fields A..D so a hit
   -- in the product name ranks higher than a hit deep in the description.
   search_doc tsvector GENERATED ALWAYS AS (
-      setweight(to_tsvector('german', immutable_unaccent(coalesce(name, ''))),        'A') ||
-      setweight(to_tsvector('german', immutable_unaccent(coalesce(brand, ''))),       'B') ||
-      setweight(to_tsvector('german', immutable_unaccent(coalesce(category, '')    || ' ' ||
+      setweight(to_tsvector('english', immutable_unaccent(coalesce(name, ''))),        'A') ||
+      setweight(to_tsvector('english', immutable_unaccent(coalesce(brand, ''))),       'B') ||
+      setweight(to_tsvector('english', immutable_unaccent(coalesce(category, '')    || ' ' ||
                                                           coalesce(subcategory, ''))), 'C') ||
-      setweight(to_tsvector('german', immutable_unaccent(coalesce(description, ''))), 'D')
+      setweight(to_tsvector('english', immutable_unaccent(coalesce(description, ''))), 'D')
   ) STORED
 );
 

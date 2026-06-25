@@ -5,7 +5,7 @@ benchmark and a comparison against the plain relational approach.
 
 **Setup before the room arrives:**
 ```bash
-docker compose up -d
+docker compose --profile demo up -d   # Postgres + pgAdmin (demo-only)
 npm install
 npm run generate -- 60000     # or 200000 for a more dramatic benchmark
 npm run seed
@@ -22,15 +22,15 @@ measured (your numbers will differ; the *shape* won't):
 
 | Query | Plan | Execution time | Rows found |
 |-------|------|---------------:|-----------:|
-| `ILIKE '%bio milch%'` | **Seq Scan** (reads all 60 000 rows) | **~133 ms** | **0** |
-| `search_doc @@ websearch_to_tsquery('german','bio milch')` | **Bitmap Index Scan** on `products_search_idx` | **~6 ms** | **694** |
+| `ILIKE '%organic milk%'` | **Seq Scan** (reads all 60 000 rows) | **~133 ms** | **0** |
+| `search_doc @@ websearch_to_tsquery('english','organic milk')` | **Bitmap Index Scan** on `products_search_idx` | **~6 ms** | **694** |
 
 Two punchlines, not one:
 
 1. **~20× faster.** The GIN index turns a full-table scan into an index lookup.
-2. **The fast one is also the *correct* one.** `ILIKE '%bio milch%'` looks for that
-   exact substring, which never occurs — our products say *"Bio Frische Vollmilch"*.
-   It returns **0**. Full-text search treats the input as `bio AND milch` over stemmed
+2. **The fast one is also the *correct* one.** `ILIKE '%organic milk%'` looks for that
+   exact substring, which never occurs — our products say *"Organic Fresh Wholemilk"*.
+   It returns **0**. Full-text search treats the input as `organic AND milk` over stemmed
    lexemes and finds all 694. This is the slide to linger on: the relational shortcut
    doesn't just lose on speed, it silently returns wrong results.
 
@@ -43,19 +43,19 @@ for ILIKE, vs `Bitmap Index Scan on products_search_idx` for FTS.
 
 ## Act 2 — the things `LIKE` can never do (run blocks 1–6)
 
-- **Block 1 — relevance ranking.** `ts_rank_cd` + the A–D field weights. *"Bio
-  Laktosefreie Milch"* (two query words in the name) outranks a product that only
+- **Block 1 — relevance ranking.** `ts_rank_cd` + the A–D field weights. *"Organic
+  Lactosefree Milk"* (two query words in the name) outranks a product that only
   mentions milk in its description. A relational `LIKE` has no concept of "more
   relevant."
 - **Block 2 — highlighting.** `ts_headline` returns the snippet with the match in
   `<b>…</b>`, exactly like the bold terms in Google results.
-- **Block 3 — stemming.** Show `to_tsvector('german', …)` vs `to_tsvector('simple', …)`.
-  The German dictionary reduces "Bohnen"→"bohn", so singular/plural just work.
-- **Block 4 — typo tolerance.** `name % 'Schoklade'` still finds "Schokolade" via
+- **Block 3 — stemming.** Show `to_tsvector('english', …)` vs `to_tsvector('simple', …)`.
+  The English dictionary reduces "beans"→"bean", so singular/plural just work.
+- **Block 4 — typo tolerance.** `name % 'Choclate'` still finds "Chocolate" via
   trigram similarity.
-- **Block 5 — autocomplete.** `to_tsquery('german','haf:*')` → Hafermilch, Haferdrink…
-- **Block 6 — faceting.** Search + `GROUP BY category` = the "Obst & Gemüse (12),
-  Getränke (5)" sidebar, in one query, on the same data, in the same transaction.
+- **Block 5 — autocomplete.** `to_tsquery('english','oat:*')` → Oatmilk Barista…
+- **Block 6 — faceting.** Search + `GROUP BY category` = the "Fruits & Vegetables (12),
+  Beverages (5)" sidebar, in one query, on the same data, in the same transaction.
 
 ## Act 3 — run the scripted benchmark (optional, 2 min)
 

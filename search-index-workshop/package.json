@@ -1,7 +1,7 @@
 {
   "name": "search-index-workshop",
   "version": "1.0.0",
-  "description": "PostgreSQL full-text search workshop on a Knuspr-style grocery catalog (TypeScript + Docker + pgAdmin 4).",
+  "description": "PostgreSQL full-text search workshop on a Knuspr-style grocery catalog (TypeScript + Docker).",
   "type": "module",
   "engines": { "node": ">=20" },
   "scripts": {

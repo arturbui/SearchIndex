@@ -3,10 +3,10 @@
 //        npm run generate -- 200000  (override count, e.g. for the benchmark)
 //
 // We combine a hand-curated catalog (scripts/catalog.ts) with faker-driven
-// variation (brand, size, "Bio", price jitter) so the data feels real and has
-// enough variety for meaningful search results.
+// variation (brand, size, "Organic", price jitter) so the data feels real and
+// has enough variety for meaningful search results.
 
-import { faker } from "@faker-js/faker/locale/de";
+import { faker } from "@faker-js/faker/locale/en";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -37,7 +37,7 @@ function buildOne(seq: number): Product {
   const arch = faker.helpers.arrayElement(cat.archetypes);
 
   const prefix = faker.helpers.arrayElement(NAME_PREFIXES);
-  const isBio = prefix === "Bio" || arch.tags.includes("bio");
+  const isBio = prefix === "Organic" || arch.tags.includes("organic");
   const brand = isBio && faker.datatype.boolean(0.4)
     ? faker.helpers.arrayElement(BIO_BRANDS)
     : faker.helpers.arrayElement(cat.brands);
@@ -50,12 +50,12 @@ function buildOne(seq: number): Product {
 
   const claims = faker.helpers.arrayElements(arch.descParts, { min: 1, max: arch.descParts.length });
   const description =
-    `${name} von ${brand}, ${unit}. ` +
+    `${name} by ${brand}, ${unit}. ` +
     `${claims.join(", ")}. ` +
-    `${isBio ? "In Bio-Qualität. " : ""}` +
-    `Schnell geliefert mit Knuspr.`;
+    `${isBio ? "Certified organic. " : ""}` +
+    `Delivered fast with Knuspr.`;
 
-  const tags = Array.from(new Set([...arch.tags, ...(isBio ? ["bio"] : [])]));
+  const tags = Array.from(new Set([...arch.tags, ...(isBio ? ["organic"] : [])]));
 
   return {
     sku: `KN-${String(seq).padStart(7, "0")}`,
@@ -71,12 +71,12 @@ function buildOne(seq: number): Product {
   };
 }
 
-console.log(`Generating ${count.toLocaleString("de-DE")} products...`);
+console.log(`Generating ${count.toLocaleString("en-US")} products...`);
 const products: Product[] = [];
 for (let i = 1; i <= count; i++) products.push(buildOne(i));
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, JSON.stringify(products, null, count <= 2000 ? 2 : 0));
 
-console.log(`Wrote ${products.length.toLocaleString("de-DE")} products -> ${OUT}`);
+console.log(`Wrote ${products.length.toLocaleString("en-US")} products -> ${OUT}`);
 console.log("Sample:", JSON.stringify(products.slice(0, 2), null, 2));

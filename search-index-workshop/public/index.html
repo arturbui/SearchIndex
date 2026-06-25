@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -32,8 +32,9 @@
 </header>
 <div class="wrap">
   <div class="bar">
-    <input id="q" placeholder="Suche… z. B. „bio milch", „schokolade vegan", „kaffee bohne"" autofocus />
-    <select id="category"><option value="">Alle Kategorien</option></select>
+    <input id="q" list="suggestions" placeholder="Search… e.g. &quot;organic milk&quot;, &quot;chocolate vegan&quot;, &quot;coffee bean&quot;" autofocus />
+    <datalist id="suggestions"></datalist>
+    <select id="category"><option value="">All categories</option></select>
   </div>
   <div class="meta" id="meta"></div>
   <div id="results"></div>
@@ -43,6 +44,16 @@ const qEl = document.getElementById("q");
 const catEl = document.getElementById("category");
 const resultsEl = document.getElementById("results");
 const metaEl = document.getElementById("meta");
+const suggestEl = document.getElementById("suggestions");
+
+function runSuggest() {
+  const q = qEl.value.trim();
+  if (!q) { suggestEl.innerHTML = ""; return; }
+  fetch("/api/suggest?q=" + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(names => { suggestEl.innerHTML = names.map(n => `<option value="${n}">`).join(""); })
+    .catch(() => {});
+}
 
 fetch("/api/categories").then(r => r.json()).then(cats => {
   for (const c of cats) {
@@ -50,7 +61,7 @@ fetch("/api/categories").then(r => r.json()).then(cats => {
   }
 }).catch(() => {});
 
-const euro = c => (c / 100).toFixed(2).replace(".", ",") + " €";
+const euro = c => "€" + (c / 100).toFixed(2);
 let timer;
 function run() {
   const q = qEl.value.trim();
@@ -60,21 +71,21 @@ function run() {
   const url = "/api/search?q=" + encodeURIComponent(q) + (category ? "&category=" + encodeURIComponent(category) : "");
   fetch(url).then(r => r.json()).then(({ count, hits }) => {
     const ms = (performance.now() - t0).toFixed(0);
-    metaEl.textContent = count + " Treffer · " + ms + " ms";
+    metaEl.textContent = count + " hits · " + ms + " ms";
     if (!hits || hits.length === 0) {
-      resultsEl.innerHTML = '<div class="empty">Keine Treffer. (Schon <code>searchProducts()</code> implementiert?)</div>';
+      resultsEl.innerHTML = '<div class="empty">No hits. (Have you implemented <code>searchProducts()</code> yet?)</div>';
       return;
     }
     resultsEl.innerHTML = hits.map(h => `
       <div class="card">
         <span class="price">${euro(h.price_cents)}</span>
-        <h3>${h.name} ${h.in_stock ? "" : '<span class="oos">· nicht verfügbar</span>'}</h3>
+        <h3>${h.name} ${h.in_stock ? "" : '<span class="oos">· out of stock</span>'}</h3>
         <div class="sub">${h.brand ?? ""} · ${h.category} › ${h.subcategory} · ${h.unit}</div>
         <div class="snip">${h.snippet ?? ""}</div>
       </div>`).join("");
-  }).catch(e => { metaEl.textContent = "Fehler: " + e; });
+  }).catch(e => { metaEl.textContent = "Error: " + e; });
 }
-qEl.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 180); });
+qEl.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => { run(); runSuggest(); }, 180); });
 catEl.addEventListener("change", run);
 </script>
 </body>
