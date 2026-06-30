@@ -47,6 +47,12 @@ CREATE INDEX IF NOT EXISTS products_search_idx
 CREATE INDEX IF NOT EXISTS products_name_trgm_idx
   ON products USING GIN (name gin_trgm_ops);
 
+-- Trigram index on the unaccented name -> powers the autocomplete ILIKE query in
+-- suggest(), which filters on immutable_unaccent(name). A plain index on name
+-- wouldn't match that expression, so this has to be a separate expression index.
+CREATE INDEX IF NOT EXISTS products_name_unaccent_trgm_idx
+  ON products USING GIN (immutable_unaccent(name) gin_trgm_ops);
+
 -- A plain b-tree for the category filter used alongside search.
 CREATE INDEX IF NOT EXISTS products_category_idx
   ON products (category);

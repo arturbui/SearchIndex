@@ -184,11 +184,25 @@ Pick a category in the dropdown — results narrow.
 ## Step 6 — Typo tolerance & autocomplete (20 min)
 
 **6a — fuzzy fallback.** Implement `fuzzySearch()` (trigram similarity) and call it from
-`searchProducts` when full-text returns 0 rows:
+`searchProducts` when full-text returns 0 rows. Use `word_similarity()` / the `<%`
+operator, not whole-string `similarity()` / `%`:
 ```ts
-WHERE name % $1 ORDER BY similarity(name, $1) DESC
+WITH cfg AS (SELECT set_config('pg_trgm.word_similarity_threshold', '0.4', true))
+SELECT ... FROM products, cfg
+WHERE $1 <% name
+ORDER BY word_similarity($1, name) DESC
 ```
-Search "Choclate" → still finds Chocolate.
+> ⚠️ **Why not `name % $1` / `similarity(name, $1)`?** That compares the query
+> against the *whole* product name, so a short query loses badly against a longer
+> multi-word name — `similarity('milj', 'Lactosefree Milk')` is only `0.16`, under
+> the `0.3` default threshold, even though "milj" is a one-letter typo of "milk".
+> `word_similarity()` instead matches the query against the best-fitting *word*
+> inside the name. Its own default threshold (`0.6`) is still too strict for
+> single-word typos — they often land at exactly `0.6`, and `<%` requires
+> strictly-greater-than — so we lower it to `0.4` for this query via
+> `set_config(..., true)` (scoped to the statement, like `SET LOCAL`).
+
+Search "Choclate" → still finds Chocolate. Search "milj" → now also finds Milk.
 
 **6b — autocomplete.** Implement `suggest()` (prefix match on `name`). The
 `/api/suggest` endpoint is already wired; add a datalist to the UI if you have time.

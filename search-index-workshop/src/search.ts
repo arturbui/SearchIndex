@@ -28,8 +28,6 @@ export interface SearchHit {
   snippet: string;
 }
 
-let warned = false;
-
 // ---------------------------------------------------------------------------
 // TODO (Step 4): Implement full-text search.
 //   - Build a query with websearch_to_tsquery('english', immutable_unaccent($1))
@@ -43,40 +41,17 @@ let warned = false;
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
   if (!q.trim()) return [];
 
-  const sql = `
-    SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
-           ts_rank_cd(search_doc, q)                            AS rank,
-           ts_headline('english', description, q,
-             'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=16, MinWords=6') AS snippet
-    FROM products,
-         websearch_to_tsquery('english', immutable_unaccent($1)) AS q
-    WHERE search_doc @@ q
-      AND ($2::text IS NULL OR category = $2)
-    ORDER BY rank DESC, in_stock DESC, name
-    LIMIT $3`;
-
-  const { rows } = await pool.query<SearchHit>(sql, [q, category ?? null, limit]);
-  if (rows.length > 0) return rows;
-
-  return fuzzySearch(q, category, limit);
+  return [];
 }
 
 // ---------------------------------------------------------------------------
 // TODO (Step 7, optional): typo-tolerant fallback using pg_trgm.
-//   WHERE name % $1  ORDER BY similarity(name, $1) DESC
+//   word_similarity($1, name), via the `<%` operator, against the
+//   best-matching *word* inside name -- not whole-string similarity()/`%`,
+//   which scores short queries too low against longer multi-word names.
 // ---------------------------------------------------------------------------
 async function fuzzySearch(q: string, category: string | undefined, limit: number): Promise<SearchHit[]> {
-  const sql = `
-    SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
-           similarity(name, $1) AS rank,
-           name AS snippet
-    FROM products
-    WHERE name % $1
-      AND ($2::text IS NULL OR category = $2)
-    ORDER BY rank DESC
-    LIMIT $3`;
-  const { rows } = await pool.query<SearchHit>(sql, [q, category ?? null, limit]);
-  return rows;
+  return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -84,23 +59,10 @@ async function fuzzySearch(q: string, category: string | undefined, limit: numbe
 // ---------------------------------------------------------------------------
 export async function suggest(prefix: string, limit = 8): Promise<string[]> {
   if (!prefix.trim()) return [];
-  const { rows } = await pool.query<{ name: string }>(
-    `SELECT name FROM (
-       SELECT DISTINCT name FROM products
-       WHERE immutable_unaccent(name) ILIKE '%' || immutable_unaccent($1) || '%'
-     ) matches
-     ORDER BY
-       CASE
-         WHEN immutable_unaccent(name) ILIKE immutable_unaccent($1) || '%' THEN 0
-         WHEN immutable_unaccent(name) ILIKE '% ' || immutable_unaccent($1) || '%' THEN 1
-         ELSE 2
-       END,
-       length(name), name
-     LIMIT $2`,
-    [prefix, limit],
-  );
-  return rows.map((r) => r.name);
+
+  return [];
 }
+
 // Already implemented for you -- fills the category dropdown in the UI.
 export async function categories(): Promise<string[]> {
   const { rows } = await pool.query<{ category: string }>(
