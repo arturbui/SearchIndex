@@ -1,7 +1,7 @@
-# Block 3 — Line-by-line tutorial: build `solutions/search.ts` by hand
+# Line-by-line tutorial: build `solutions/search.ts` by hand (2 h)
 
-This is the same workshop as `docs/03-tutorial.md`, but Steps 5 & 6 are broken
-into much smaller increments. Each increment adds **one clause** to the SQL
+This is the same workshop as `docs/03-tutorial.md`, but the search-query steps are
+broken into much smaller increments. Each increment adds **one clause** to the SQL
 string in `src/search.ts`, explains what that clause does on its own, and gives
 you a checkpoint to run before moving to the next line. The TypeScript around
 the SQL is just a template literal + `pool.query(sql, params)` — almost all of
@@ -13,120 +13,55 @@ matches `solutions/search.ts` exactly.
 
 ---
 
-## Step 0 — Prerequisites (5 min)
+## Setup (20 min)
 
-You need **Docker Desktop running**, **Node ≥ 20**, and an editor. Check:
+> 💻 **Terminal 1** — open one terminal now; you'll reuse it for all of Setup and
+> for Step 1.
 
-> 💻 **Terminal 1** — open one terminal now; you'll reuse it for Steps 0–4.
+#### 1. Prerequisites
 
 ```bash
 docker --version
 node --version
-```
-
-Clone the repo and install JS dependencies:
-
-```bash
 git clone <repo-url> search-index-workshop
 cd search-index-workshop
 cp .env.example .env
 npm install
 ```
 
-## Step 1 — Start Postgres with Docker (10 min)
-
-Still in **Terminal 1**:
+#### 2. Start Postgres
 
 ```bash
 docker compose up -d db
 docker compose ps        # 'db' should be 'running'/'healthy'
 ```
 
-Both commands return immediately (`-d` = detached) — Postgres keeps running in the
-background, so Terminal 1 is free for the next command.
-
-What just happened: `docker-compose.yml` started **Postgres 16** (port 5432). On
-first boot it ran `db/init/00-extensions.sql`, which installed the `unaccent` and
-`pg_trgm` extensions and created our `immutable_unaccent()` helper.
-
-> 🔎 **Checkpoint:** `docker compose logs db | grep "database system is ready"`.
-
-## Step 2 — Connect with psql (5 min)
-
-You'll run SQL straight from the terminal throughout the tutorial — no GUI needed
-(pgAdmin isn't part of the student setup; that's a presenter-only demo tool).
-Still in **Terminal 1**:
+#### 3. Connect with psql
 
 ```bash
 docker compose exec db psql -U workshop knuspr
 ```
+`\dt` to list tables, `\q` to exit. For one-off commands, skip the interactive
+prompt: `docker compose exec -T db psql -U workshop knuspr -c "<sql>"`.
 
-This drops you into an **interactive** `psql` prompt — it takes over Terminal 1
-until you exit it. Try `\dt` to list tables (empty for now), then type `\q` and
-press Enter to exit back to your normal shell before moving on.
-
-> You'll reopen this same command (same terminal) whenever a later step says
-> "run this SQL interactively." For quick one-off checks you can also use the
-> non-interactive form: `docker compose exec -T db psql -U workshop knuspr -c "<sql>"`.
-
-## Step 3 — Create the search index (15 min)
-
-Open `db/schema.sql` in your editor and read the comments. Then, back in
-**Terminal 1** (you should have exited `psql` with `\q` already), apply it:
+#### 4. Create the search index
 
 ```bash
 docker compose exec -T db psql -U workshop knuspr < db/schema.sql
 ```
+> 🪟 **PowerShell:** `Get-Content db/schema.sql | docker compose exec -T db psql -U workshop knuspr`
 
-> 🪟 **PowerShell:** `<` redirection isn't supported. Pipe the file in instead:
-> ```powershell
-> Get-Content db/schema.sql | docker compose exec -T db psql -U workshop knuspr
-> ```
-
-The `-T` flag makes this a **one-shot, non-interactive** command — it runs and
-returns control to Terminal 1 immediately, no `\q` needed.
-
-The key object is the **generated `tsvector` column** plus the **GIN index** on it —
-that *is* the search index. Two things to understand before moving on:
-
-1. **Why `immutable_unaccent` and not plain `unaccent`?** Try editing the schema to use
-   `unaccent(...)` directly and re-run — Postgres rejects it with *"generated column
-   expression is not immutable."* Generated columns (and functional indexes) may only
-   call **IMMUTABLE** functions — ones guaranteed to return the same output forever for
-   the same input. `unaccent()` is only marked **STABLE**, because its dictionary could
-   in principle change, so we wrap it in our own `IMMUTABLE` function (`db/init/00-extensions.sql`)
-   that pins the dictionary. Put the schema back.
-2. **Why GIN?** It's an inverted index: lexeme → rows. Inspect what got stored — same
-   terminal, another one-shot command:
-   ```bash
-   docker compose exec -T db psql -U workshop knuspr -c "SELECT name, search_doc FROM products LIMIT 0;"
-   # empty for now, but note the column type
-   ```
-
-## Step 4 — Generate test data with gen AI (10 min)
-
-We need a realistic catalog. `scripts/generate-data.ts` combines a curated grocery
-vocabulary (`scripts/catalog.ts`) with `@faker-js/faker` to synthesize products.
-Still in **Terminal 1**:
+#### 5. Generate test data
 
 ```bash
-npm run generate -- 20000     # writes data/products.json (reproducible: faker.seed(42))
+npm run generate -- 20000     # writes data/products.json
 npm run seed                  # applies schema + bulk-loads the rows
-```
-
-Verify, same terminal, with one-shot `psql -c` commands (no need to enter the
-interactive prompt):
-```bash
 docker compose exec -T db psql -U workshop knuspr -c "SELECT count(*) FROM products;"
-docker compose exec -T db psql -U workshop knuspr -c "SELECT name, brand, price_cents, search_doc FROM products LIMIT 5;"
 ```
 
-> 💡 **Gen-AI shortcut:** want more categories or a different store? Ask your AI
-> assistant: *"Add a `CategoryDef` for 'Babybedarf' with 4 archetypes in the style of
-> scripts/catalog.ts"*, paste it into the `CATALOG` array, and re-generate. The whole
-> data layer is designed to be AI-extensible.
+---
 
-## Step 5 — Write the search query, one clause at a time (45 min) — the core of the workshop
+## Step 1 — Write the search query, one clause at a time (45 min) — the core of the workshop
 
 Open `src/search.ts`. The server and UI already call `searchProducts()`, but it
 returns `[]`. Start the app so you can see your changes live — still **Terminal 1**:
@@ -145,7 +80,7 @@ Type "milk" in the search box — no results yet. We're going to build the final
 query in `solutions/search.ts` one line at a time. After each sub-step, save the
 file and re-run the search in the browser.
 
-**5a — match, nothing else.** The smallest query that can return a row at all:
+**1a — match, nothing else.** The smallest query that can return a row at all:
 ```sql
 SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock
 FROM products
@@ -177,7 +112,7 @@ return rows;
 
 Search "organic milk" → results appear, unranked, no snippet. 🎉
 
-**5b — stop computing the tsquery twice.** Right now if you wanted to also
+**1b — stop computing the tsquery twice.** Right now if you wanted to also
 *rank* by the tsquery, you'd have to repeat the whole
 `websearch_to_tsquery('english', immutable_unaccent($1))` expression a second
 time in the `SELECT` list — easy to typo, wasteful to recompute. Instead, compute
@@ -194,7 +129,7 @@ now reference anywhere else in the query. Re-run "organic milk" — same results
 same behavior, just cleaner SQL. This is purely a refactor; nothing should change
 in the browser yet.
 
-**5c — rank by relevance.** Replace `0::float AS rank` with:
+**1c — rank by relevance.** Replace `0::float AS rank` with:
 ```sql
 ts_rank_cd(search_doc, q) AS rank
 ```
@@ -208,7 +143,7 @@ ORDER BY rank DESC
 Search "organic milk" again — the most relevant products now come first instead
 of in arbitrary row order.
 
-**5d — highlight the match.** Replace `'' AS snippet` with:
+**1d — highlight the match.** Replace `'' AS snippet` with:
 ```sql
 ts_headline('english', description, q,
   'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=16, MinWords=6') AS snippet
@@ -230,7 +165,7 @@ Reading the options left to right:
 Search "organic milk" → each result now shows a highlighted snippet from its
 description.
 
-**5e — add the category filter.** Add a second parameter and shift `limit` to
+**1e — add the category filter.** Add a second parameter and shift `limit` to
 `$3`:
 ```sql
 WHERE search_doc @@ q
@@ -246,7 +181,7 @@ when the UI doesn't send a category, `$2` is `null`, the left side of the `OR` i
 true, and the whole `AND` clause is a no-op. When a category *is* sent, only the
 right side matters. Pick a category in the dropdown — results narrow.
 
-**5f — deterministic ordering.** Finish the `ORDER BY`:
+**1f — deterministic ordering.** Finish the `ORDER BY`:
 ```sql
 ORDER BY rank DESC, in_stock DESC, name
 ```
@@ -255,7 +190,7 @@ breaks the tie by surfacing items you can actually buy first; `name` breaks any
 remaining tie alphabetically so the result order is stable across repeated
 searches instead of depending on physical row order in the table.
 
-**5g — wire in the fallback.** Last piece of `searchProducts`: if full-text
+**1g — wire in the fallback.** Last piece of `searchProducts`: if full-text
 search finds nothing, fall through to typo-tolerant search instead of just
 showing an empty page:
 ```ts
@@ -265,12 +200,12 @@ if (rows.length > 0) return rows;
 return fuzzySearch(q, category, limit);
 ```
 `searchProducts` is now complete and matches `solutions/search.ts`. Search a
-nonsense string like "xyzxyz" — you'll get `[]` until Step 6 implements
+nonsense string like "xyzxyz" — you'll get `[]` until Step 2 implements
 `fuzzySearch`.
 
-## Step 6 — Typo tolerance & autocomplete (30 min)
+## Step 2 — Typo tolerance & autocomplete (30 min)
 
-**6a — fuzzy fallback, one clause at a time.** `fuzzySearch()` only runs when
+**2a — fuzzy fallback, one clause at a time.** `fuzzySearch()` only runs when
 full-text search returned zero rows, so it needs to tolerate misspellings.
 
 *Why not the obvious `name % $1` / `similarity(name, $1)`?* Try it first so you
@@ -318,7 +253,7 @@ ORDER BY rank DESC
 - `WITH cfg AS (...)` wraps that `set_config` call in a CTE. `set_config` is a
   side-effecting (`VOLATILE`) function, so Postgres can't fold/reorder it away —
   this guarantees it actually runs.
-- `FROM products, cfg` — same cross-join-with-a-one-row-table trick as Step 5b,
+- `FROM products, cfg` — same cross-join-with-a-one-row-table trick as Step 1b,
   here purely to force `cfg` (and its side effect) to execute as part of this
   statement.
 
@@ -338,7 +273,7 @@ LIMIT $3
 ```
 Search "Choclate" → still finds Chocolate. Search "milj" → now also finds Milk.
 
-**6b — autocomplete, one clause at a time.** `suggest()` powers the `/api/suggest`
+**2b — autocomplete, one clause at a time.** `suggest()` powers the `/api/suggest`
 endpoint (already wired up — add a `<datalist>` to the UI if you have time).
 
 Start with the simplest possible version — prefix match:
@@ -354,7 +289,7 @@ names that *start* with "choc". Switch to a "contains" match so a query like
 ```sql
 WHERE name ILIKE '%' || $1 || '%'
 ```
-Now make it accent-insensitive, same trick as Step 5a — wrap **both** sides in
+Now make it accent-insensitive, same trick as Step 1a — wrap **both** sides in
 `immutable_unaccent` so e.g. "cafe" still matches "Café":
 ```sql
 WHERE immutable_unaccent(name) ILIKE '%' || immutable_unaccent($1) || '%'
@@ -397,7 +332,7 @@ names like "Milk" should now outrank "Organic Lactosefree Milk".
 Compare your file against `solutions/search.ts` to confirm — it should now match
 exactly.
 
-## Step 7 — Stretch goals (remaining time)
+## Step 3 — Stretch goals (remaining time)
 
 - **Synonyms:** create a custom text-search dictionary so "softdrink" matches "cola".
 - **Compound words:** install an `ispell`/compound-word dictionary so `milk` matches
@@ -411,21 +346,21 @@ exactly.
   npm run generate -- 200000 && npm run seed && npm run benchmark
   ```
 
-## Step 8 — Debugging cheat-sheet
+## Step 4 — Debugging cheat-sheet
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `generated column expression is not immutable` | Used `unaccent()` (STABLE) in the generated column / a functional index | Use the `immutable_unaccent()` wrapper (Step 3, concept §4) |
+| `generated column expression is not immutable` | Used `unaccent()` (STABLE) in the generated column / a functional index | Use the `immutable_unaccent()` wrapper (Setup §4) |
 | `ECONNREFUSED 127.0.0.1:5432` from Node | DB container not up, or wrong port | `docker compose ps`; check `.env` `POSTGRES_PORT`; `docker compose up -d` |
 | `password authentication failed` | `.env` doesn't match compose defaults | Use `workshop`/`workshop`/`knuspr`, or `docker compose down -v` to reset |
-| `relation "products" does not exist` | Schema not applied | Run `db/schema.sql` (Step 3) or `npm run seed` |
-| Terminal looks "frozen" / no prompt after a `docker compose exec ... psql -c ...` | Forgot `-T` — Docker allocated a pseudo-TTY, so `psql` piped the (wide `search_doc` column) output through its pager (`less`), which swallows the terminal | Press `q` to quit the pager and get your prompt back. Going forward, always pass `-T` for one-shot `psql -c` / redirected commands (Steps 3–4) — without a TTY, psql skips the pager entirely |
-| `MinWords must be less than MaxWords` | `ts_headline` options out of order | Set `MinWords` < `MaxWords` (Step 5d) |
+| `relation "products" does not exist` | Schema not applied | Run `db/schema.sql` (Setup §4) or `npm run seed` |
+| Terminal looks "frozen" / no prompt after a `docker compose exec ... psql -c ...` | Forgot `-T` — Docker allocated a pseudo-TTY, so `psql` piped the (wide `search_doc` column) output through its pager (`less`), which swallows the terminal | Press `q` to quit the pager and get your prompt back. Going forward, always pass `-T` for one-shot `psql -c` / redirected commands (Setup §4-5) — without a TTY, psql skips the pager entirely |
+| `MinWords must be less than MaxWords` | `ts_headline` options out of order | Set `MinWords` < `MaxWords` (Step 1d) |
 | `text search configuration "english" does not exist` | Typo in the config name | It's lowercase `'english'` |
 | Search returns **0** for multi-word input with `LIKE` | `ILIKE '%a b%'` needs the literal substring | That's the point — use `websearch_to_tsquery` instead |
-| `milk` doesn't match `Wholemilk`/`Oatmilk` | Compound words aren't split by default | Expected; this is the Step 7 stretch goal |
-| Fuzzy search finds nothing for a short typo | Using whole-string `similarity()`/`%` instead of `word_similarity()`/`<%` | See Step 6a — switch operators, and lower the threshold via `set_config` |
-| `EXPLAIN` shows `Seq Scan` for the autocomplete query | Index built on `name`, query filters on `immutable_unaccent(name)` | The index must match the exact filtered expression — see the Step 6b gotcha |
+| `milk` doesn't match `Wholemilk`/`Oatmilk` | Compound words aren't split by default | Expected; this is the Step 3 stretch goal |
+| Fuzzy search finds nothing for a short typo | Using whole-string `similarity()`/`%` instead of `word_similarity()`/`<%` | See Step 2a — switch operators, and lower the threshold via `set_config` |
+| `EXPLAIN` shows `Seq Scan` for the autocomplete query | Index built on `name`, query filters on `immutable_unaccent(name)` | The index must match the exact filtered expression — see the Step 2b gotcha |
 | Code edits don't take effect | Not using watch mode | Run `npm run dev` (tsx watch), or restart `npm start` |
 | `function websearch_to_tsquery does not exist` | Postgres < 11 | Use the `postgres:16` image from our compose file |
 | EXPLAIN shows Seq Scan even for FTS | Table too small for the planner to bother | Seed more rows (≥ ~10k); the GIN index kicks in at scale |
