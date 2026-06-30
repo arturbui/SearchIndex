@@ -36,7 +36,7 @@ export interface SearchHit {
 //   - Bonus (Step 5): add the optional category filter ($2)
 //   - Bonus (Step 6): add a highlighted snippet with ts_headline(...)
 //   - Bonus (Step 7): if you get 0 rows, fall back to fuzzySearch() below
-// Look at db/demo-queries.sql -- the SQL you need is mostly there already.
+// Follow docs/03-tutorial.md (or docs/05-line-by-line.md for a clause-by-clause walkthrough).
 // ---------------------------------------------------------------------------
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
   if (!q.trim()) return [];

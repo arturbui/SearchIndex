@@ -88,8 +88,11 @@ that *is* the search index. Two things to understand before moving on:
 
 1. **Why `immutable_unaccent` and not plain `unaccent`?** Try editing the schema to use
    `unaccent(...)` directly and re-run — Postgres rejects it with *"generated column
-   expression is not immutable."* Generated columns may only call IMMUTABLE functions.
-   Put it back. (Full explanation in `docs/01-concept.md §4`.)
+   expression is not immutable."* Generated columns (and functional indexes) may only
+   call **IMMUTABLE** functions — ones guaranteed to return the same output forever for
+   the same input. `unaccent()` is only marked **STABLE**, because its dictionary could
+   in principle change, so we wrap it in our own `IMMUTABLE` function (`db/init/00-extensions.sql`)
+   that pins the dictionary. Put the schema back.
 2. **Why GIN?** It's an inverted index: lexeme → rows. Inspect what got stored — same
    terminal, another one-shot command:
    ```bash
@@ -213,8 +216,9 @@ Compare your file against `solutions/search.ts` to confirm.
 
 - **Synonyms:** create a custom text-search dictionary so "softdrink" matches "cola".
 - **Compound words:** install an `ispell`/compound-word dictionary so `milk` matches
-  `Wholemilk`/`Oatmilk` (see `docs/01-concept.md §6` for why this is the hard part).
-  A great "now you see why Elasticsearch exists" moment.
+  `Wholemilk`/`Oatmilk`. By default `to_tsvector('english', 'Wholemilk')` produces the
+  single lexeme `wholemilk`, so a search for `milk` won't match it — splitting compounds
+  needs extra dictionary setup. A great "now you see why Elasticsearch exists" moment.
 - **Pagination & price filter** in the API.
 - **Run the benchmark at 200k:** Terminal 1 is still busy running `npm run dev`, so
   open a **new terminal** for this one:

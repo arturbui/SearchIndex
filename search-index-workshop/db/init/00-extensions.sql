@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS unaccent;
 -- pg_trgm: trigram similarity, powers typo-tolerant ("fuzzy") search.
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- GOTCHA worth understanding (we explain this in docs/01-concept.md):
+-- GOTCHA worth understanding:
 -- unaccent() is only marked STABLE, not IMMUTABLE, so Postgres refuses to use it
 -- directly inside a GENERATED column or a functional index. We wrap it in our own
 -- IMMUTABLE function. The two-argument form unaccent('unaccent', $1) pins the

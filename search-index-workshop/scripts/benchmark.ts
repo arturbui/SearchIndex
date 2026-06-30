@@ -4,8 +4,9 @@
 // It prints, per query term:
 //   - avg latency of `ILIKE '%term%'` over (name || description)   [no useful index -> seq scan]
 //   - avg latency of `search_doc @@ websearch_to_tsquery(...)`     [GIN index]
-//   - the row counts (they differ on purpose -- see docs/02-demo.md)
-// and dumps one EXPLAIN ANALYZE for each so you can show the plan in the slides.
+//   - the row counts (they differ on purpose: ILIKE substring-matches the raw text,
+//     while FTS matches stemmed/normalized lexemes, so the two don't return the same set)
+// and dumps one EXPLAIN ANALYZE for each so you can see the query plan.
 
 import { pool } from "../src/db.ts";
 

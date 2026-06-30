@@ -1,52 +1,45 @@
 # Search Index Workshop — PostgreSQL Full-Text Search
 
-> A 3-hour, hands-on workshop. Our "search index" is **PostgreSQL's own full-text
+> A hands-on tutorial. Our "search index" is **PostgreSQL's own full-text
 > search** (a `tsvector` column backed by a **GIN** index), built over a
-> Knuspr-style online grocery catalog. Stack: **Docker · TypeScript** (pgAdmin 4
-> is used only for the live demo in Block 2 — the tutorial is hands-on coding).
+> Knuspr-style online grocery catalog. Stack: **Docker · TypeScript**.
 
 The whole point: a search index is not a separate product you bolt on — Postgres
-*is* a competent search engine if you know which knobs to turn. We show where that
-holds up, and (honestly) where it doesn't.
+*is* a competent search engine if you know which knobs to turn.
 
 ---
 
-## Agenda (3 h)
+## Tutorial
 
-| # | Block | Time | Material |
-|---|-------|------|----------|
-| 1 | **Concept** — what a search index is, and how Postgres does it | 30 min | [`docs/01-concept.md`](docs/01-concept.md) |
-| 2 | **Demo** — full-text search vs. a relational `LIKE`, live | 30 min | [`docs/02-demo.md`](docs/02-demo.md), [`db/demo-queries.sql`](db/demo-queries.sql) |
-| 3 | **Tutorial** — build a working grocery search, step by step | 2 h | [`docs/03-tutorial.md`](docs/03-tutorial.md) |
+| Material | Description |
+|---|---|
+| [`docs/03-tutorial.md`](docs/03-tutorial.md) | Build a working grocery search, step by step. |
+| [`docs/05-line-by-line.md`](docs/05-line-by-line.md) | Same tutorial, but every SQL clause is introduced and explained on its own — useful if you want to understand every line before typing it. |
 
-## Quickstart (presenters)
+`solutions/search.ts` has the finished, working implementation if you get stuck
+or want to check your work.
+
+## Quickstart
 
 ```bash
 cp .env.example .env
 docker compose up -d            # Postgres only
 npm install
-npm run generate -- 60000       # AI-style generated grocery catalog -> data/products.json
+npm run generate -- 20000       # AI-style generated grocery catalog -> data/products.json
 npm run seed                    # schema + bulk load
-cp solutions/search.ts src/search.ts   # use the finished search code
 npm run dev                     # http://localhost:3000
 ```
 
-For the Block 2 demo only, start pgAdmin too:
-```bash
-docker compose --profile demo up -d
-```
-pgAdmin: <http://localhost:5050> (login `admin@workshop.local` / `workshop`; the
-"Workshop DB" server is pre-registered, password `workshop`).
+Then follow `docs/03-tutorial.md` (or `docs/05-line-by-line.md`) starting from
+Step 5 — `src/search.ts` is the stub you'll fill in.
 
 ## Repo layout
 
 ```
-docker-compose.yml      Postgres 16 + pgAdmin 4 (demo-only, `--profile demo`)
+docker-compose.yml      Postgres 16
 db/
   init/00-extensions.sql  auto-run on first boot: unaccent, pg_trgm, immutable_unaccent()
   schema.sql              products table + GIN/trigram indexes (the search index)
-  demo-queries.sql        the live demo (Block 2) — run these in pgAdmin
-  pgadmin/servers.json    pre-registers the DB connection
 scripts/
   catalog.ts              hand-curated grocery vocabulary
   generate-data.ts        builds data/products.json
@@ -58,20 +51,10 @@ src/
   server.ts               Express API + static UI
 solutions/search.ts       reference implementation
 public/index.html          tiny search UI
-docs/                       the three workshop blocks
+docs/                       the tutorial
 ```
-
-## How the three of us split it
-
-- **Person A — Concept (Block 1):** present `docs/01-concept.md`. Owns: inverted
-  index, `tsvector`/`tsquery`, GIN, ranking, the honest "Postgres vs Elasticsearch"
-  comparison.
-- **Person B — Demo (Block 2):** drive `db/demo-queries.sql` in pgAdmin + run
-  `npm run benchmark`. Owns: relevance, highlighting, typo tolerance, the EXPLAIN.
-- **Person C — Tutorial (Block 2h):** lead `docs/03-tutorial.md`, keep students in
-  sync, work the debugging table. Owns the live coding of `src/search.ts`.
 
 ## Requirements
 
 Docker Desktop, Node ≥ 20, and any editor. Nothing else to install — Postgres
-(and, for the demo only, pgAdmin) run in containers.
+runs in a container.
