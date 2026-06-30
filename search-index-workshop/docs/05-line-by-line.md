@@ -41,8 +41,19 @@ docker compose ps        # 'db' should be 'running'/'healthy'
 ```bash
 docker compose exec db psql -U workshop knuspr
 ```
-`\dt` to list tables, `\q` to exit. For one-off commands, skip the interactive
-prompt: `docker compose exec -T db psql -U workshop knuspr -c "<sql>"`.
+
+You are now inside the Postgres terminal. Try `\dt` to list tables (empty for now).
+When you're done, **exit back to your normal shell before moving on** — type:
+
+```sql
+\q
+```
+
+> ⚠️ Steps 4 and 5 won't work if you're still inside psql. If your terminal shows
+> `knuspr=#` you're still in it — type `\q` and press Enter to get out.
+
+For one-off SQL checks later, you can skip the interactive prompt entirely:
+`docker compose exec -T db psql -U workshop knuspr -c "<sql>"`.
 
 #### 4. Create the search index
 
