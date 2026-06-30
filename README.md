@@ -20,10 +20,9 @@ and watch them light up the UI.
 
 ```bash
 docker --version
-node --version
+node --version   # needs v20+  →  https://nodejs.org
 git clone https://github.com/arturbui/SearchIndex.git search-index-workshop
 cd search-index-workshop
-cp .env.example .env
 npm install
 ```
 
