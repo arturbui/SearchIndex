@@ -236,31 +236,27 @@ Pick a category in the dropdown — results narrow. `searchProducts` is now comp
 **2a — fuzzy fallback.**
 
 When full-text search finds nothing, fall back to trigram similarity so typos like
-"milj" still find "Milk". The key lines:
+"milj" still find "Milk". The key line:
 
 ```sql
-WITH cfg AS (SELECT set_config('pg_trgm.word_similarity_threshold', '0.4', true))
-SELECT ... FROM products, cfg
-WHERE $1 <% name
-ORDER BY word_similarity($1, name) DESC
+WHERE word_similarity($1, name) > 0.4
 ```
 
 `word_similarity($1, name)` compares your query against the best-matching single word
-inside the product name (not the whole name). `$1 <% name` is the indexable version of
-that check. The `WITH cfg` lowers the match threshold from 0.6 to 0.4 for this query
-only — single-word typos often land exactly at 0.6, and `<%` requires strictly above it.
+inside the product name (not the whole string). `> 0.4` is the similarity threshold —
+a value between 0 and 1, where 1 is a perfect match. We use 0.4 to catch close typos
+without returning unrelated results.
 
 Your `fuzzySearch` function should look like this:
 
 ```ts
 async function fuzzySearch(q: string, category: string | undefined, limit: number): Promise<SearchHit[]> {
   const sql = `
-    WITH cfg AS (SELECT set_config('pg_trgm.word_similarity_threshold', '0.4', true))
     SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
            word_similarity($1, name) AS rank,
            name AS snippet
-    FROM products, cfg
-    WHERE $1 <% name
+    FROM products
+    WHERE word_similarity($1, name) > 0.4
       AND ($2::text IS NULL OR category = $2)
     ORDER BY rank DESC
     LIMIT $3`;

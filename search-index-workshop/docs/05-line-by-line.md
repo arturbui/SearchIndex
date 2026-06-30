@@ -226,52 +226,29 @@ is right there. `similarity()` compares your query against the **entire** produc
 name, so a 4-character query loses badly against a longer multi-word name —
 `similarity('milj', 'Lactosefree Milk')` is only `0.16`, under the `0.3` default
 threshold. The fix is `word_similarity()`, which matches your query against the
-single best-fitting *word* inside the name instead of the whole string:
+single best-fitting *word* inside the name instead of the whole string. And instead
+of using an operator with a configurable global threshold, we bake the threshold
+directly into the WHERE clause as a plain comparison — simple, readable, and it
+always behaves exactly the same way regardless of how the query planner reorders things:
 ```sql
 SELECT name, word_similarity($1, name) AS rank
 FROM products
-WHERE $1 <% name
+WHERE word_similarity($1, name) > 0.4
 ORDER BY rank DESC
 ```
 - `word_similarity($1, name)` — trigram similarity between `$1` and the
-  best-matching word-sized substring of `name`.
-- `$1 <% name` — the indexable boolean form of the same check: "is
-  `word_similarity($1, name)` above the configured threshold?" Argument order
-  matters: `$1 <% name` means "$1 is the short query, name is the text to search
-  within" (the commutator `name %> $1` means the same thing, reversed).
+  best-matching word-sized substring of `name`. Returns a value between 0 (no match)
+  and 1 (perfect match).
+- `> 0.4` — the similarity threshold. 0.4 catches close typos without returning
+  unrelated products. Try changing it up or down to see the effect.
 
-Re-run "milj" → now matches "...Lactosefree Milk", but notice the scores are all
-exactly `0.6` — right at Postgres's default `pg_trgm.word_similarity_threshold`.
-Single-word typos routinely land exactly on that boundary, and `<%` requires
-**strictly greater than** the threshold, so some real near-misses still get
-dropped. Lower the threshold for this query only:
+Now add the category filter, snippet, and limit:
 ```sql
-WITH cfg AS (SELECT set_config('pg_trgm.word_similarity_threshold', '0.4', true))
-SELECT name, word_similarity($1, name) AS rank
-FROM products, cfg
-WHERE $1 <% name
-ORDER BY rank DESC
-```
-- `set_config('pg_trgm.word_similarity_threshold', '0.4', true)` — the third
-  argument `true` scopes the change to the current transaction only (like `SET
-  LOCAL`), so it doesn't leak into other queries on the same pooled connection.
-- `WITH cfg AS (...)` wraps that `set_config` call in a CTE. `set_config` is a
-  side-effecting (`VOLATILE`) function, so Postgres can't fold/reorder it away —
-  this guarantees it actually runs.
-- `FROM products, cfg` — same cross-join-with-a-one-row-table trick as Step 1b,
-  here purely to force `cfg` (and its side effect) to execute as part of this
-  statement.
-
-Now add the category filter and limit to match `searchProducts`'s signature,
-and snippet (just the name itself — there's no description match to highlight
-for a fuzzy result):
-```sql
-WITH cfg AS (SELECT set_config('pg_trgm.word_similarity_threshold', '0.4', true))
 SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
        word_similarity($1, name) AS rank,
        name AS snippet
-FROM products, cfg
-WHERE $1 <% name
+FROM products
+WHERE word_similarity($1, name) > 0.4
   AND ($2::text IS NULL OR category = $2)
 ORDER BY rank DESC
 LIMIT $3

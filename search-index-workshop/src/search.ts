@@ -44,9 +44,9 @@ export async function searchProducts({ q, category, limit = 20 }: SearchParams):
 
 // ---------------------------------------------------------------------------
 // TODO (Step 2a, optional): typo-tolerant fallback using pg_trgm.
-//   word_similarity($1, name), via the `<%` operator, against the
-//   best-matching *word* inside name -- not whole-string similarity()/`%`,
-//   which scores short queries too low against longer multi-word names.
+//   WHERE word_similarity($1, name) > 0.4  ORDER BY word_similarity($1, name) DESC
+//   word_similarity matches the query against the best single word inside the name,
+//   not the whole string (avoids short queries scoring too low against long names).
 // ---------------------------------------------------------------------------
 async function fuzzySearch(q: string, category: string | undefined, limit: number): Promise<SearchHit[]> {
   return [];

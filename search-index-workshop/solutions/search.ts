@@ -44,20 +44,18 @@ export async function searchProducts({ q, category, limit = 20 }: SearchParams):
   return fuzzySearch(q, category, limit);
 }
 
-// Trigram fallback: catches "Schoklade" -> "Schokolade". Uses word_similarity
-// (not whole-string similarity()/`%`) so a short query is matched against the
-// best-fitting *word* inside a longer product name, and lowers the 0.6 default
-// `word_similarity_threshold` to 0.4 (scoped to this statement via
-// set_config(..., true)) since single-word typos often land right at 0.6,
-// which the strictly-greater-than `<%` operator then misses.
+// Trigram fallback: catches "Schoklade" -> "Schokolade". Filters directly on
+// word_similarity() > 0.4 so the threshold is baked into the query expression
+// itself, not a GUC side-effect — the GUC+CTE approach isn't reliable because
+// the planner can reorder the join and evaluate the index scan before the
+// set_config() side effect fires, silently dropping valid matches.
 async function fuzzySearch(q: string, category: string | undefined, limit: number): Promise<SearchHit[]> {
   const sql = `
-    WITH cfg AS (SELECT set_config('pg_trgm.word_similarity_threshold', '0.4', true))
     SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
            word_similarity($1, name) AS rank,
            name AS snippet
-    FROM products, cfg
-    WHERE $1 <% name
+    FROM products
+    WHERE word_similarity($1, name) > 0.4
       AND ($2::text IS NULL OR category = $2)
     ORDER BY rank DESC
     LIMIT $3`;
