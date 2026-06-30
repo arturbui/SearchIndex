@@ -1,4 +1,4 @@
-# Tutorial: build a working grocery search (2 h)
+# Tutorial: build a working grocery search
 
 By the end you'll have a running search box over a Knuspr-style catalog, backed by a
 PostgreSQL search index. You implement the search logic; everything else is provided.
@@ -12,7 +12,7 @@ and watch them light up the UI.
 
 ---
 
-## Setup (20 min)
+## Setup
 
 > 💻 **Terminal 1** — open one terminal now; you'll reuse it for all of Setup and
 > for Step 1.
@@ -60,7 +60,7 @@ docker compose exec -T db psql -U workshop knuspr -c "SELECT count(*) FROM produ
 
 ---
 
-## Step 1 — Write the search query (30 min) — the core of the workshop
+## Step 1 — Write the search query — the core of the workshop
 
 Open `src/search.ts` and start the dev server (this one stays running — open a new
 terminal if you need a shell for anything else):
@@ -220,7 +220,7 @@ export async function searchProducts({ q, category, limit = 20 }: SearchParams):
 ```
 Pick a category in the dropdown — results narrow. `searchProducts` is now complete.
 
-## Step 2 — Typo tolerance & autocomplete (20 min)
+## Step 2 — Typo tolerance & autocomplete
 
 **2a — fuzzy fallback.** Implement `fuzzySearch()` (trigram similarity) and call it from
 `searchProducts` when full-text returns 0 rows. Use `word_similarity()` / the `<%`

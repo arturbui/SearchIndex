@@ -1,4 +1,4 @@
-# Line-by-line tutorial: build `solutions/search.ts` by hand (2 h)
+# Line-by-line tutorial: build `solutions/search.ts` by hand
 
 This is the same workshop as `docs/03-tutorial.md`, but the search-query steps are
 broken into much smaller increments. Each increment adds **one clause** to the SQL
@@ -13,7 +13,7 @@ matches `solutions/search.ts` exactly.
 
 ---
 
-## Setup (20 min)
+## Setup
 
 > 💻 **Terminal 1** — open one terminal now; you'll reuse it for all of Setup and
 > for Step 1.
@@ -61,7 +61,7 @@ docker compose exec -T db psql -U workshop knuspr -c "SELECT count(*) FROM produ
 
 ---
 
-## Step 1 — Write the search query, one clause at a time (45 min) — the core of the workshop
+## Step 1 — Write the search query, one clause at a time — the core of the workshop
 
 Open `src/search.ts` and start the dev server (this one stays running — open a new
 terminal for `psql` tests or anything else):
@@ -197,7 +197,7 @@ return fuzzySearch(q, category, limit);
 nonsense string like "xyzxyz" — you'll get `[]` until Step 2 implements
 `fuzzySearch`.
 
-## Step 2 — Typo tolerance & autocomplete (30 min)
+## Step 2 — Typo tolerance & autocomplete
 
 **2a — fuzzy fallback, one clause at a time.** `fuzzySearch()` only runs when
 full-text search returned zero rows, so it needs to tolerate misspellings.
