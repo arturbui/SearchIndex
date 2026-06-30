@@ -75,7 +75,15 @@ Type "milk" — no results yet. Implement in order, test in the browser after ea
 
 **1a — basic full-text search.**
 
-Replace the body of `searchProducts` with:
+The key line that does the actual search — replace `return [];` with a `pool.query` call and type this WHERE clause:
+
+```sql
+WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent($1))
+```
+
+`search_doc` is the pre-built search index column. `@@` checks whether a row matches the query. `websearch_to_tsquery` parses your typed text into a search query (supports phrases, `-exclude`, etc). `immutable_unaccent` strips accents so "Müsli" matches a search for "Musli".
+
+Your function should now look like this:
 
 ```ts
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
@@ -98,7 +106,18 @@ Search "organic milk" → results appear. 🎉
 
 **1b — rank by relevance.**
 
-Pull the tsquery into a `FROM` alias so you can reuse it for scoring, and add `ORDER BY rank DESC`:
+Replace `0::float AS rank` with a score, move the tsquery into the `FROM` clause so you can reuse it in both `WHERE` and `SELECT`, and sort by best match first:
+
+```sql
+ts_rank_cd(search_doc, q) AS rank
+FROM products,
+     websearch_to_tsquery('english', immutable_unaccent($1)) AS q
+ORDER BY rank DESC
+```
+
+`ts_rank_cd` gives each row a relevance score — hits in the product name count more than hits in the description because of the field weights in `db/schema.sql`. Putting the tsquery in `FROM ... AS q` is just a way to compute it once and reference it by name everywhere.
+
+Your function should now look like this:
 
 ```ts
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
@@ -123,7 +142,17 @@ The most relevant products now come first.
 
 **1c — highlight the match.**
 
-Swap `'' AS snippet` for a `ts_headline` call:
+Replace `'' AS snippet` with a call that extracts a short excerpt from the description and wraps matched words in `<mark>` tags:
+
+```sql
+ts_headline('english', description, q,
+  'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=16, MinWords=6') AS snippet
+```
+
+> ⚠️ **Gotcha:** if you set `MaxWords` below the default `MinWords` (15) you get
+> *"MinWords must be less than MaxWords."* Always set both explicitly.
+
+Your function should now look like this:
 
 ```ts
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
@@ -144,15 +173,28 @@ export async function searchProducts({ q, category, limit = 20 }: SearchParams):
   return rows;
 }
 ```
-> ⚠️ **Gotcha:** if you set `MaxWords` below the default `MinWords` (15) you get
-> *"MinWords must be less than MaxWords."* Always set both explicitly.
+Each result now shows a highlighted excerpt from its description.
 
 ---
 
 **1d — category filter + fallback.**
 
-Add the optional category parameter, fix the tiebreaker ordering, and fall through to
-`fuzzySearch` when full-text finds nothing:
+Add the category filter to `WHERE`, update `ORDER BY` with tiebreakers, shift `limit` to `$3`, and fall through to `fuzzySearch` when nothing matches:
+
+```sql
+AND ($2::text IS NULL OR category = $2)
+ORDER BY rank DESC, in_stock DESC, name
+LIMIT $3
+```
+```ts
+[q, category ?? null, limit]
+if (rows.length > 0) return rows;
+return fuzzySearch(q, category, limit);
+```
+
+`$2::text IS NULL OR category = $2` is the standard SQL pattern for an optional filter — when no category is chosen, `$2` is `null` and the filter does nothing. `in_stock DESC, name` keeps the order stable when two products have the same rank.
+
+Your function should now look like this:
 
 ```ts
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
