@@ -7,8 +7,7 @@ PostgreSQL search index. You implement the search logic; everything else is prov
 write the queries — full-text ranking, highlighting, typo tolerance, autocomplete —
 and watch them light up the UI.
 
-> Stuck at any point? `solutions/search.ts` has the finished code, and the
-> **Debugging** table at the bottom covers every error we expect you to hit.
+> Stuck at any point? `solutions/search.ts` has the finished code.
 
 ---
 
@@ -331,24 +330,6 @@ Compare your file against `solutions/search.ts` to confirm everything matches.
   ```bash
   npm run generate -- 200000 && npm run seed && npm run benchmark
   ```
-
-## Step 4 — Debugging cheat-sheet
-
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `generated column expression is not immutable` | Used `unaccent()` (STABLE) in the generated column / a functional index | Use the `immutable_unaccent()` wrapper (Setup §4) |
-| `ECONNREFUSED 127.0.0.1:5432` from Node | DB container not up, or wrong port | `docker compose ps`; check `.env` `POSTGRES_PORT`; `docker compose up -d` |
-| `password authentication failed` | `.env` doesn't match compose defaults | Use `workshop`/`workshop`/`knuspr`, or `docker compose down -v` to reset |
-| `relation "products" does not exist` | Schema not applied | Run `db/schema.sql` (Setup §4) or `npm run seed` |
-| Terminal looks "frozen" / no prompt after a `docker compose exec ... psql -c ...` | Forgot `-T` — Docker allocated a pseudo-TTY, so `psql` piped the (wide `search_doc` column) output through its pager (`less`), which swallows the terminal | Press `q` to quit the pager and get your prompt back. Going forward, always pass `-T` for one-shot `psql -c` / redirected commands (Setup §4-5) — without a TTY, psql skips the pager entirely |
-| `MinWords must be less than MaxWords` | `ts_headline` options out of order | Set `MinWords` < `MaxWords` (Step 1c) |
-| `text search configuration "english" does not exist` | Typo in the config name | It's lowercase `'english'` |
-| Search returns **0** for multi-word input with `LIKE` | `ILIKE '%a b%'` needs the literal substring | That's the point — use `websearch_to_tsquery` instead |
-| `milk` doesn't match `Wholemilk`/`Oatmilk` | Compound words aren't split by default | Expected; this is the Step 3 stretch goal |
-| Fuzzy search finds nothing for a short typo | Using whole-string `similarity()`/`%` instead of `word_similarity()`/`<%` | See Step 2a — switch operators, and lower the threshold via `set_config` |
-| Code edits don't take effect | Not using watch mode | Run `npm run dev` (tsx watch), or restart `npm start` |
-| `function websearch_to_tsquery does not exist` | Postgres < 11 | Use the `postgres:16` image from our compose file |
-| EXPLAIN shows Seq Scan even for FTS | Table too small for the planner to bother | Seed more rows (≥ ~10k); the GIN index kicks in at scale |
 
 ## Done
 
