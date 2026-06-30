@@ -62,21 +62,14 @@ docker compose exec -T db psql -U workshop knuspr -c "SELECT count(*) FROM produ
 
 ## Step 1 — Write the search query (30 min) — the core of the workshop
 
-Open `src/search.ts`. The server and UI already call `searchProducts()`, but it
-returns `[]`. Start the app so you can see your changes live — still **Terminal 1**:
+Open `src/search.ts` and start the dev server (this one stays running — open a new
+terminal if you need a shell for anything else):
 
 ```bash
 npm run dev      # http://localhost:3000
 ```
 
-Unlike the previous commands, this one **does not return** — it's a watch process
-that keeps running and reprints logs as you save files. Leave Terminal 1 running
-this for the rest of the tutorial; don't type further commands into it. If you need
-a shell for anything else from here on (e.g. the Step 3 benchmark), open a **new
-terminal**.
-
-Type "milk" — no results yet. Now implement, in order. Type the query into your
-search box after each sub-step.
+Type "milk" — no results yet. Implement in order, test in the browser after each sub-step.
 
 **1a — basic full-text search.** Replace the body of `searchProducts`:
 
