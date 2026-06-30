@@ -1,5 +1,12 @@
-// PRESENTER BRANCH: solved implementation, used as a live-demo safety net.
-// Students work from the stub on the `student` branch instead.
+// ============================================================================
+//  src/search.ts  --  THIS IS YOUR WORKSHOP STUB. You implement the TODOs.
+//
+//  The server (src/server.ts) and the web UI already call these functions.
+//  Right now they return nothing, so the UI shows "no results" -- your job is
+//  to make search actually work, step by step (see docs/03-tutorial.md).
+//
+//  Stuck? The finished version lives in solutions/search.ts.
+// ============================================================================
 import { pool } from "./db.ts";
 
 export interface SearchParams {
@@ -21,71 +28,40 @@ export interface SearchHit {
   snippet: string;
 }
 
-// Main full-text search. Ranked, highlighted, optional category facet,
-// with a typo-tolerant fallback when full-text finds nothing.
+// ---------------------------------------------------------------------------
+// TODO (Step 1): Implement full-text search — work through 1a → 1d in order.
+//   1a: WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent($1))
+//   1b: pull tsquery into FROM alias, add ts_rank_cd(...) AS rank, ORDER BY rank DESC
+//   1c: add ts_headline(...) AS snippet
+//   1d: add category filter ($2), shift limit to $3, fall back to fuzzySearch()
+// See docs/03-tutorial.md for the full code at each step.
+// ---------------------------------------------------------------------------
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
   if (!q.trim()) return [];
 
-  const sql = `
-    SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
-           ts_rank_cd(search_doc, q)                            AS rank,
-           ts_headline('english', description, q,
-             'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=16, MinWords=6') AS snippet
-    FROM products,
-         websearch_to_tsquery('english', immutable_unaccent($1)) AS q
-    WHERE search_doc @@ q
-      AND ($2::text IS NULL OR category = $2)
-    ORDER BY rank DESC, in_stock DESC, name
-    LIMIT $3`;
-
-  const { rows } = await pool.query<SearchHit>(sql, [q, category ?? null, limit]);
-  if (rows.length > 0) return rows;
-
-  return fuzzySearch(q, category, limit);
+  return [];
 }
 
-// Trigram fallback: catches "Schoklade" -> "Schokolade". Uses word_similarity
-// (not whole-string similarity()/`%`) so a short query is matched against the
-// best-fitting *word* inside a longer product name, and lowers the 0.6 default
-// `word_similarity_threshold` to 0.4 (scoped to this statement via
-// set_config(..., true)) since single-word typos often land right at 0.6,
-// which the strictly-greater-than `<%` operator then misses.
+// ---------------------------------------------------------------------------
+// TODO (Step 2a, optional): typo-tolerant fallback using pg_trgm.
+//   WHERE word_similarity($1, name) > 0.4  ORDER BY word_similarity($1, name) DESC
+//   word_similarity matches the query against the best single word inside the name,
+//   not the whole string (avoids short queries scoring too low against long names).
+// ---------------------------------------------------------------------------
 async function fuzzySearch(q: string, category: string | undefined, limit: number): Promise<SearchHit[]> {
-  const sql = `
-    WITH cfg AS (SELECT set_config('pg_trgm.word_similarity_threshold', '0.4', true))
-    SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
-           word_similarity($1, name) AS rank,
-           name AS snippet
-    FROM products, cfg
-    WHERE $1 <% name
-      AND ($2::text IS NULL OR category = $2)
-    ORDER BY rank DESC
-    LIMIT $3`;
-  const { rows } = await pool.query<SearchHit>(sql, [q, category ?? null, limit]);
-  return rows;
+  return [];
 }
 
-// Autocomplete: prefix matches on the product name.
+// ---------------------------------------------------------------------------
+// TODO (Step 2b, optional): autocomplete via prefix match on name.
+// ---------------------------------------------------------------------------
 export async function suggest(prefix: string, limit = 8): Promise<string[]> {
   if (!prefix.trim()) return [];
-  const { rows } = await pool.query<{ name: string }>(
-    `SELECT name FROM (
-       SELECT DISTINCT name FROM products
-       WHERE immutable_unaccent(name) ILIKE '%' || immutable_unaccent($1) || '%'
-     ) matches
-     ORDER BY
-       CASE
-         WHEN immutable_unaccent(name) ILIKE immutable_unaccent($1) || '%' THEN 0
-         WHEN immutable_unaccent(name) ILIKE '% ' || immutable_unaccent($1) || '%' THEN 1
-         ELSE 2
-       END,
-       length(name), name
-     LIMIT $2`,
-    [prefix, limit],
-  );
-  return rows.map((r) => r.name);
+
+  return [];
 }
 
+// Already implemented for you -- fills the category dropdown in the UI.
 export async function categories(): Promise<string[]> {
   const { rows } = await pool.query<{ category: string }>(
     "SELECT DISTINCT category FROM products ORDER BY category",
