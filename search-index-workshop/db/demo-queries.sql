@@ -6,18 +6,16 @@
 -- 0) How big is the catalog, and what does the search index look like?
 SELECT count(*) AS products FROM products;
 
--- ILIKE: exact substring match -- "organically" never appears literally, so 0 results.
-EXPLAIN (ANALYZE, BUFFERS)
-SELECT count(*) AS ilike_matches
-FROM products
-WHERE name ILIKE '%organically%' OR description ILIKE '%organically%';  -- Seq Scan, slow
 
--- 0b) FTS: stems "organically" -> "organ", finds every organic product.
+-- ILIKE (slow — scans everything)
 EXPLAIN (ANALYZE, BUFFERS)
-SELECT count(*) AS fts_matches
-FROM products
-WHERE search_doc @@ websearch_to_tsquery('english', 'organically');  -- GIN index, fast
--- Note the tsvector: lexemes with positions and weights, e.g. 'milk':2A
+SELECT id FROM products
+WHERE name ILIKE '%dark chocolate%' OR description ILIKE '%dark chocolate%';
+
+-- GIN index (fast — jumps to matches)
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id FROM products
+WHERE search_doc @@ websearch_to_tsquery('english', 'dark chocolate');
 
 
 -- ----------------------------------------------------------------------------
@@ -90,8 +88,8 @@ ORDER BY hits DESC;
 -- ----------------------------------------------------------------------------
 EXPLAIN (ANALYZE, BUFFERS)
 SELECT id FROM products
-WHERE name ILIKE '%organic milk%' OR description ILIKE '%organic milk%';   -- Seq Scan
+WHERE name ILIKE '%dark chocolate%' OR description ILIKE '%dark chocolate%';   -- Seq Scan
 
 EXPLAIN (ANALYZE, BUFFERS)
 SELECT id FROM products
-WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent('organic milk')); -- GIN
+WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent('dark chocolate')); -- GIN
