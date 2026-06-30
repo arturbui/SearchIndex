@@ -71,28 +71,47 @@ docker compose exec -T db psql -U workshop knuspr -c "SELECT count(*) FROM produ
 
 ## Step 1 — Write the search query — the core of the workshop
 
-Open `src/search.ts` and start the dev server (this one stays running — open a new
-terminal if you need a shell for anything else):
+Open `src/search.ts`. You'll see three functions with `return []` placeholders — fill
+them in order. Start the dev server first (keep it running; open a new terminal for
+any other commands):
 
 ```bash
 npm run dev      # http://localhost:3000
 ```
 
-Type "milk" — no results yet. Implement in order, test in the browser after each sub-step.
+Type "milk" — no results yet. Work through each sub-step and test in the browser as you go.
 
 ---
 
 **1a — basic full-text search.**
 
-The key line that does the actual search — replace `return [];` with a `pool.query` call and type this WHERE clause:
+Your `searchProducts` function currently ends with a lone `return [];`. Delete that
+line and replace it with the block below — keep the `if (!q.trim()) return [];` guard
+at the top untouched:
 
-```sql
-WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent($1))
+```ts
+  const { rows } = await pool.query<SearchHit>(
+    `SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
+            0::float AS rank, '' AS snippet
+     FROM products
+     WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent($1))
+     LIMIT $2`,
+    [q, limit],
+  );
+  return rows;
 ```
 
-`search_doc` is the pre-built search index column. `@@` checks whether a row matches the query. `websearch_to_tsquery` parses your typed text into a search query (supports phrases, `-exclude`, etc). `immutable_unaccent` strips accents so "Müsli" matches a search for "Musli".
+What each piece means:
+- **`pool.query<SearchHit>(...)`** — runs a SQL query and returns rows. `<SearchHit>` tells TypeScript the shape of each row so you get autocomplete and type-checking.
+- **`$1`, `$2`** — placeholders for the values in the array `[q, limit]`. PostgreSQL fills them in order, safely, without any risk of SQL injection.
+- **`search_doc`** — a pre-built search index column set up in `db/schema.sql`. Think of it as a compressed, pre-processed version of the product's text, optimised for fast matching.
+- **`@@`** — the full-text match operator. It checks whether a row's `search_doc` matches the parsed query.
+- **`websearch_to_tsquery('english', ...)`** — parses the user's typed text into a search query. Handles phrases in quotes, `-word` to exclude, etc.
+- **`immutable_unaccent($1)`** — strips accents before matching, so "Müsli" matches a search for "Musli".
+- **`0::float AS rank`** — a placeholder score (zero for now). You'll replace this in the next step.
+- **`'' AS snippet`** — a placeholder excerpt (empty for now). You'll replace this in step 1c.
 
-Your function should now look like this:
+Your full function should now look like this:
 
 ```ts
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
@@ -109,24 +128,50 @@ export async function searchProducts({ q, category, limit = 20 }: SearchParams):
   return rows;
 }
 ```
+
 Search "organic milk" → results appear. 🎉
 
 ---
 
 **1b — rank by relevance.**
 
-Replace `0::float AS rank` with a score, move the tsquery into the `FROM` clause so you can reuse it in both `WHERE` and `SELECT`, and sort by best match first:
+Results appear but in arbitrary order. Make four edits inside the SQL string you just wrote:
 
+**Edit 1.** Replace `0::float AS rank` with:
 ```sql
 ts_rank_cd(search_doc, q) AS rank
-FROM products,
-     websearch_to_tsquery('english', immutable_unaccent($1)) AS q
-ORDER BY rank DESC
 ```
 
-`ts_rank_cd` gives each row a relevance score — hits in the product name count more than hits in the description because of the field weights in `db/schema.sql`. Putting the tsquery in `FROM ... AS q` is just a way to compute it once and reference it by name everywhere.
+**Edit 2.** Replace `FROM products` with:
+```sql
+FROM products,
+     websearch_to_tsquery('english', immutable_unaccent($1)) AS q
+```
+This puts the tsquery into `FROM` as an alias called `q`, so you can refer to it by name in both `WHERE` and `SELECT` without writing the full expression twice.
 
-Your function should now look like this:
+**Edit 3.** Replace `WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent($1))` with:
+```sql
+WHERE search_doc @@ q
+```
+(Using the alias `q` from `FROM` instead of repeating the full expression.)
+
+**Edit 4.** Add `ORDER BY rank DESC` before `LIMIT $2`:
+```sql
+ORDER BY rank DESC
+LIMIT $2
+```
+
+Also move the SQL into a `const sql` variable — purely a readability change, not a logic change:
+```ts
+  const sql = `
+    SELECT ...`;
+  const { rows } = await pool.query<SearchHit>(sql, [q, limit]);
+```
+
+What's new:
+- **`ts_rank_cd(search_doc, q)`** — scores each row by how closely it matches. Hits in the product name count more than hits in the description because of field weights configured in `db/schema.sql`.
+
+Your full function should now look like this:
 
 ```ts
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
@@ -145,23 +190,25 @@ export async function searchProducts({ q, category, limit = 20 }: SearchParams):
   return rows;
 }
 ```
+
 The most relevant products now come first.
 
 ---
 
 **1c — highlight the match.**
 
-Replace `'' AS snippet` with a call that extracts a short excerpt from the description and wraps matched words in `<mark>` tags:
+Find `'' AS snippet` in your SQL and replace it with:
 
 ```sql
 ts_headline('english', description, q,
   'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=16, MinWords=6') AS snippet
 ```
 
-> ⚠️ **Gotcha:** if you set `MaxWords` below the default `MinWords` (15) you get
-> *"MinWords must be less than MaxWords."* Always set both explicitly.
+What's new:
+- **`ts_headline`** — extracts a short excerpt from the product `description` and wraps matching words in `<mark>` tags, which the UI renders as highlights.
+- The options string controls the excerpt: `MaxFragments=1` returns one passage, `MaxWords=16, MinWords=6` set its length. Always set both — if `MaxWords` falls below the default `MinWords` (15) you get *"MinWords must be less than MaxWords."*
 
-Your function should now look like this:
+Your full function should now look like this:
 
 ```ts
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
@@ -182,28 +229,46 @@ export async function searchProducts({ q, category, limit = 20 }: SearchParams):
   return rows;
 }
 ```
+
 Each result now shows a highlighted excerpt from its description.
 
 ---
 
 **1d — category filter + fallback.**
 
-Add the category filter to `WHERE`, update `ORDER BY` with tiebreakers, shift `limit` to `$3`, and fall through to `fuzzySearch` when nothing matches:
+Five small edits to wire up the category dropdown and the typo-tolerant fallback:
 
+**Edit 1.** In `WHERE`, add a second condition after `WHERE search_doc @@ q`:
 ```sql
-AND ($2::text IS NULL OR category = $2)
-ORDER BY rank DESC, in_stock DESC, name
+WHERE search_doc @@ q
+  AND ($2::text IS NULL OR category = $2)
+```
+`$2::text IS NULL OR category = $2` is the standard SQL pattern for an optional filter — when no category is selected, `$2` is `null` so the condition is always true and nothing is filtered out.
+
+**Edit 2.** Change `LIMIT $2` to `LIMIT $3` (because `$2` is now taken by `category`):
+```sql
 LIMIT $3
 ```
+
+**Edit 3.** Extend `ORDER BY` to add tiebreakers after `rank DESC`:
+```sql
+ORDER BY rank DESC, in_stock DESC, name
+```
+`in_stock DESC` floats available products up; `name` keeps the order stable when two products share the same rank.
+
+**Edit 4.** Update the query parameters array from `[q, limit]` to:
 ```ts
 [q, category ?? null, limit]
-if (rows.length > 0) return rows;
-return fuzzySearch(q, category, limit);
+```
+`category ?? null` passes `null` when no category is chosen, which makes the `IS NULL` check work.
+
+**Edit 5.** Replace `return rows;` with a fuzzy fallback for when nothing matched:
+```ts
+  if (rows.length > 0) return rows;
+  return fuzzySearch(q, category, limit);
 ```
 
-`$2::text IS NULL OR category = $2` is the standard SQL pattern for an optional filter — when no category is chosen, `$2` is `null` and the filter does nothing. `in_stock DESC, name` keeps the order stable when two products have the same rank.
-
-Your function should now look like this:
+Your full function should now look like this:
 
 ```ts
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
@@ -227,25 +292,35 @@ export async function searchProducts({ q, category, limit = 20 }: SearchParams):
   return fuzzySearch(q, category, limit);
 }
 ```
+
 Pick a category in the dropdown — results narrow. `searchProducts` is now complete.
 
 ## Step 2 — Typo tolerance & autocomplete
 
 **2a — fuzzy fallback.**
 
-When full-text search finds nothing, fall back to trigram similarity so typos like
-"milj" still find "Milk". The key line:
+Find `fuzzySearch` — it currently just does `return []`. Delete that line and replace it
+with:
 
-```sql
-WHERE word_similarity($1, name) > 0.4
+```ts
+  const sql = `
+    SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
+           word_similarity($1, name) AS rank,
+           name AS snippet
+    FROM products
+    WHERE word_similarity($1, name) > 0.4
+      AND ($2::text IS NULL OR category = $2)
+    ORDER BY rank DESC
+    LIMIT $3`;
+  const { rows } = await pool.query<SearchHit>(sql, [q, category ?? null, limit]);
+  return rows;
 ```
 
-`word_similarity($1, name)` compares your query against the best-matching single word
-inside the product name (not the whole string). `> 0.4` is the similarity threshold —
-a value between 0 and 1, where 1 is a perfect match. We use 0.4 to catch close typos
-without returning unrelated results.
+What's new:
+- **`word_similarity($1, name)`** — compares your query against the best-matching single word inside the product name (not the whole string). This avoids short queries scoring too low against long names.
+- **`> 0.4`** — the similarity threshold. `1` = perfect match, `0` = nothing in common. `0.4` catches close typos without returning unrelated results.
 
-Your `fuzzySearch` function should look like this:
+Your full function should now look like this:
 
 ```ts
 async function fuzzySearch(q: string, category: string | undefined, limit: number): Promise<SearchHit[]> {
@@ -269,28 +344,35 @@ Search "Choclate" → still finds Chocolate. Search "milj" → now also finds Mi
 
 **2b — autocomplete.**
 
-`suggest()` powers the dropdown as you type. The query finds names that contain your
-input, then ranks them so prefix matches come first:
+Find `suggest` — it has a guard line (`if (!prefix.trim()) return [];`) and then
+`return []`. Delete that last `return []` and replace it with:
 
-```sql
-SELECT name FROM (
-  SELECT DISTINCT name FROM products
-  WHERE immutable_unaccent(name) ILIKE '%' || immutable_unaccent($1) || '%'
-) matches
-ORDER BY
-  CASE
-    WHEN immutable_unaccent(name) ILIKE immutable_unaccent($1) || '%' THEN 0
-    WHEN immutable_unaccent(name) ILIKE '% ' || immutable_unaccent($1) || '%' THEN 1
-    ELSE 2
-  END,
-  length(name), name
-LIMIT $2
+```ts
+  const { rows } = await pool.query<{ name: string }>(
+    `SELECT name FROM (
+       SELECT DISTINCT name FROM products
+       WHERE immutable_unaccent(name) ILIKE '%' || immutable_unaccent($1) || '%'
+     ) matches
+     ORDER BY
+       CASE
+         WHEN immutable_unaccent(name) ILIKE immutable_unaccent($1) || '%' THEN 0
+         WHEN immutable_unaccent(name) ILIKE '% ' || immutable_unaccent($1) || '%' THEN 1
+         ELSE 2
+       END,
+       length(name), name
+     LIMIT $2`,
+    [prefix, limit],
+  );
+  return rows.map((r) => r.name);
 ```
 
-`ILIKE` is a case-insensitive `LIKE`. The `CASE` ranks results: `0` = name starts with
-your query, `1` = your query matches at a word boundary, `2` = matched anywhere else.
+What each piece means:
+- **`ILIKE '%' || ... || '%'`** — case-insensitive substring match. `ILIKE` is like SQL `LIKE` but ignores upper/lower case. `%` is a wildcard matching any characters.
+- **`SELECT DISTINCT name`** — de-duplicates so the same product name only appears once in the dropdown.
+- **`CASE WHEN ... THEN 0 / 1 / 2`** — ranks results by quality of match: `0` = name starts with your query (best), `1` = your query starts at a word boundary, `2` = matched anywhere else.
+- **`length(name), name`** — tiebreakers: shorter names first, then alphabetical.
 
-Your `suggest` function should look like this:
+Your full function should now look like this:
 
 ```ts
 export async function suggest(prefix: string, limit = 8): Promise<string[]> {
