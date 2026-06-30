@@ -3,7 +3,7 @@
 //
 //  The server (src/server.ts) and the web UI already call these functions.
 //  Right now they return nothing, so the UI shows "no results" -- your job is
-//  to make search actually work, step by step (see docs/03-tutorial.md).
+//  to make search actually work, step by step.
 //
 //  Stuck? The finished version lives in solutions/search.ts.
 // ============================================================================
@@ -34,7 +34,6 @@ export interface SearchHit {
 //   1b: pull tsquery into FROM alias, add ts_rank_cd(...) AS rank, ORDER BY rank DESC
 //   1c: add ts_headline(...) AS snippet
 //   1d: add category filter ($2), shift limit to $3, fall back to fuzzySearch()
-// See docs/03-tutorial.md for the full code at each step.
 // ---------------------------------------------------------------------------
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
   if (!q.trim()) return [];
