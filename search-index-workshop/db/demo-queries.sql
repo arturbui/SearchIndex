@@ -6,10 +6,17 @@
 -- 0) How big is the catalog, and what does the search index look like?
 SELECT count(*) AS products FROM products;
 
-SELECT name, search_doc
+-- ILIKE: exact substring match -- "organically" never appears literally, so 0 results.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*) AS ilike_matches
 FROM products
-WHERE name ILIKE 'Organic%'
-LIMIT 3;
+WHERE name ILIKE '%organically%' OR description ILIKE '%organically%';  -- Seq Scan, slow
+
+-- 0b) FTS: stems "organically" -> "organ", finds every organic product.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*) AS fts_matches
+FROM products
+WHERE search_doc @@ websearch_to_tsquery('english', 'organically');  -- GIN index, fast
 -- Note the tsvector: lexemes with positions and weights, e.g. 'milk':2A
 
 
