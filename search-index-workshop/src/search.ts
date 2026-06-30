@@ -29,23 +29,30 @@ export interface SearchHit {
 }
 
 // ---------------------------------------------------------------------------
-// TODO (Step 4): Implement full-text search.
-//   - Build a query with websearch_to_tsquery('english', immutable_unaccent($1))
-//   - Filter rows with:  search_doc @@ q
-//   - Score them with:   ts_rank_cd(search_doc, q)  and ORDER BY rank DESC
-//   - Bonus (Step 5): add the optional category filter ($2)
-//   - Bonus (Step 6): add a highlighted snippet with ts_headline(...)
-//   - Bonus (Step 7): if you get 0 rows, fall back to fuzzySearch() below
-// Follow docs/03-tutorial.md (or docs/05-line-by-line.md for a clause-by-clause walkthrough).
+// TODO (Step 1): Implement full-text search — work through 1a → 1d in order.
+//   1a: WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent($1))
+//   1b: pull tsquery into FROM alias, add ts_rank_cd(...) AS rank, ORDER BY rank DESC
+//   1c: add ts_headline(...) AS snippet
+//   1d: add category filter ($2), shift limit to $3, fall back to fuzzySearch()
+// See docs/03-tutorial.md for the full code at each step.
 // ---------------------------------------------------------------------------
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
   if (!q.trim()) return [];
-
+    const { rows } = await pool.query<SearchHit>(
+  `SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
+        ts_rank_cd(search_doc, q) AS rank, '' AS snippet
+ FROM products, websearch_to_tsquery('english', immutable_unaccent($1)) AS q
+ WHERE search_doc @@ q
+ ORDER BY rank DESC
+ LIMIT $2`,
+  [q, limit],
+);
+return rows;
   return [];
 }
 
 // ---------------------------------------------------------------------------
-// TODO (Step 7, optional): typo-tolerant fallback using pg_trgm.
+// TODO (Step 2a, optional): typo-tolerant fallback using pg_trgm.
 //   word_similarity($1, name), via the `<%` operator, against the
 //   best-matching *word* inside name -- not whole-string similarity()/`%`,
 //   which scores short queries too low against longer multi-word names.
@@ -55,7 +62,7 @@ async function fuzzySearch(q: string, category: string | undefined, limit: numbe
 }
 
 // ---------------------------------------------------------------------------
-// TODO (Step 8, optional): autocomplete via prefix match on name.
+// TODO (Step 2b, optional): autocomplete via prefix match on name.
 // ---------------------------------------------------------------------------
 export async function suggest(prefix: string, limit = 8): Promise<string[]> {
   if (!prefix.trim()) return [];

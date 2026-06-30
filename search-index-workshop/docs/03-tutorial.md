@@ -71,48 +71,112 @@ npm run dev      # http://localhost:3000
 
 Type "milk" — no results yet. Implement in order, test in the browser after each sub-step.
 
-**1a — basic full-text search.** Replace the body of `searchProducts`:
+---
+
+**1a — basic full-text search.**
+
+Replace the body of `searchProducts` with:
 
 ```ts
-const { rows } = await pool.query<SearchHit>(
-  `SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
-          0::float AS rank, '' AS snippet
-   FROM products
-   WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent($1))
-   LIMIT $2`,
-  [q, limit],
-);
-return rows;
+export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
+  if (!q.trim()) return [];
+
+  const { rows } = await pool.query<SearchHit>(
+    `SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
+            0::float AS rank, '' AS snippet
+     FROM products
+     WHERE search_doc @@ websearch_to_tsquery('english', immutable_unaccent($1))
+     LIMIT $2`,
+    [q, limit],
+  );
+  return rows;
+}
 ```
 Search "organic milk" → results appear. 🎉
 
-**1b — rank by relevance.** Pull the query into a `FROM` alias so you can score it:
+---
+
+**1b — rank by relevance.**
+
+Pull the tsquery into a `FROM` alias so you can reuse it for scoring, and add `ORDER BY rank DESC`:
 
 ```ts
-`SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
-        ts_rank_cd(search_doc, q) AS rank, '' AS snippet
- FROM products, websearch_to_tsquery('english', immutable_unaccent($1)) AS q
- WHERE search_doc @@ q
- ORDER BY rank DESC
- LIMIT $2`
-```
-Now the most relevant products come first.
+export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
+  if (!q.trim()) return [];
 
-**1c — highlight the match.** Swap `'' AS snippet` for:
-```ts
-ts_headline('english', description, q,
-  'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MinWords=6, MaxWords=16') AS snippet
-```
-> ⚠️ **Gotcha (you will hit this):** if you set `MaxWords` below the default
-> `MinWords` (15) you get *"MinWords must be less than MaxWords."* Always set both.
+  const sql = `
+    SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
+           ts_rank_cd(search_doc, q) AS rank, '' AS snippet
+    FROM products,
+         websearch_to_tsquery('english', immutable_unaccent($1)) AS q
+    WHERE search_doc @@ q
+    ORDER BY rank DESC
+    LIMIT $2`;
 
-**1d — category filter.** Add `$2` for category and shift `limit` to `$3`:
-```ts
-WHERE search_doc @@ q AND ($2::text IS NULL OR category = $2)
-...
-[q, category ?? null, limit]
+  const { rows } = await pool.query<SearchHit>(sql, [q, limit]);
+  return rows;
+}
 ```
-Pick a category in the dropdown — results narrow.
+The most relevant products now come first.
+
+---
+
+**1c — highlight the match.**
+
+Swap `'' AS snippet` for a `ts_headline` call:
+
+```ts
+export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
+  if (!q.trim()) return [];
+
+  const sql = `
+    SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
+           ts_rank_cd(search_doc, q)                            AS rank,
+           ts_headline('english', description, q,
+             'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=16, MinWords=6') AS snippet
+    FROM products,
+         websearch_to_tsquery('english', immutable_unaccent($1)) AS q
+    WHERE search_doc @@ q
+    ORDER BY rank DESC
+    LIMIT $2`;
+
+  const { rows } = await pool.query<SearchHit>(sql, [q, limit]);
+  return rows;
+}
+```
+> ⚠️ **Gotcha:** if you set `MaxWords` below the default `MinWords` (15) you get
+> *"MinWords must be less than MaxWords."* Always set both explicitly.
+
+---
+
+**1d — category filter + fallback.**
+
+Add the optional category parameter, fix the tiebreaker ordering, and fall through to
+`fuzzySearch` when full-text finds nothing:
+
+```ts
+export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
+  if (!q.trim()) return [];
+
+  const sql = `
+    SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
+           ts_rank_cd(search_doc, q)                            AS rank,
+           ts_headline('english', description, q,
+             'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=16, MinWords=6') AS snippet
+    FROM products,
+         websearch_to_tsquery('english', immutable_unaccent($1)) AS q
+    WHERE search_doc @@ q
+      AND ($2::text IS NULL OR category = $2)
+    ORDER BY rank DESC, in_stock DESC, name
+    LIMIT $3`;
+
+  const { rows } = await pool.query<SearchHit>(sql, [q, category ?? null, limit]);
+  if (rows.length > 0) return rows;
+
+  return fuzzySearch(q, category, limit);
+}
+```
+Pick a category in the dropdown — results narrow. `searchProducts` is now complete.
 
 ## Step 2 — Typo tolerance & autocomplete (20 min)
 
