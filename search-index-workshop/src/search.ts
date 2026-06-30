@@ -38,16 +38,7 @@ export interface SearchHit {
 // ---------------------------------------------------------------------------
 export async function searchProducts({ q, category, limit = 20 }: SearchParams): Promise<SearchHit[]> {
   if (!q.trim()) return [];
-    const { rows } = await pool.query<SearchHit>(
-  `SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
-        ts_rank_cd(search_doc, q) AS rank, '' AS snippet
- FROM products, websearch_to_tsquery('english', immutable_unaccent($1)) AS q
- WHERE search_doc @@ q
- ORDER BY rank DESC
- LIMIT $2`,
-  [q, limit],
-);
-return rows;
+
   return [];
 }
 

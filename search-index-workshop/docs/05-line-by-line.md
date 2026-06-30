@@ -23,7 +23,7 @@ matches `solutions/search.ts` exactly.
 ```bash
 docker --version
 node --version
-git clone <repo-url> search-index-workshop
+git clone https://github.com/arturbui/SearchIndex.git search-index-workshop
 cd search-index-workshop
 cp .env.example .env
 npm install

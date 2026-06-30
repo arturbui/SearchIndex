@@ -22,7 +22,7 @@ and watch them light up the UI.
 ```bash
 docker --version
 node --version
-git clone <repo-url> search-index-workshop
+git clone https://github.com/arturbui/SearchIndex.git search-index-workshop
 cd search-index-workshop
 cp .env.example .env
 npm install
@@ -233,31 +233,94 @@ Pick a category in the dropdown — results narrow. `searchProducts` is now comp
 
 ## Step 2 — Typo tolerance & autocomplete
 
-**2a — fuzzy fallback.** Implement `fuzzySearch()` (trigram similarity) and call it from
-`searchProducts` when full-text returns 0 rows. Use `word_similarity()` / the `<%`
-operator, not whole-string `similarity()` / `%`:
-```ts
+**2a — fuzzy fallback.**
+
+When full-text search finds nothing, fall back to trigram similarity so typos like
+"milj" still find "Milk". The key lines:
+
+```sql
 WITH cfg AS (SELECT set_config('pg_trgm.word_similarity_threshold', '0.4', true))
 SELECT ... FROM products, cfg
 WHERE $1 <% name
 ORDER BY word_similarity($1, name) DESC
 ```
-> ⚠️ **Why not `name % $1` / `similarity(name, $1)`?** That compares the query
-> against the *whole* product name, so a short query loses badly against a longer
-> multi-word name — `similarity('milj', 'Lactosefree Milk')` is only `0.16`, under
-> the `0.3` default threshold, even though "milj" is a one-letter typo of "milk".
-> `word_similarity()` instead matches the query against the best-fitting *word*
-> inside the name. Its own default threshold (`0.6`) is still too strict for
-> single-word typos — they often land at exactly `0.6`, and `<%` requires
-> strictly-greater-than — so we lower it to `0.4` for this query via
-> `set_config(..., true)` (scoped to the statement, like `SET LOCAL`).
+
+`word_similarity($1, name)` compares your query against the best-matching single word
+inside the product name (not the whole name). `$1 <% name` is the indexable version of
+that check. The `WITH cfg` lowers the match threshold from 0.6 to 0.4 for this query
+only — single-word typos often land exactly at 0.6, and `<%` requires strictly above it.
+
+Your `fuzzySearch` function should look like this:
+
+```ts
+async function fuzzySearch(q: string, category: string | undefined, limit: number): Promise<SearchHit[]> {
+  const sql = `
+    WITH cfg AS (SELECT set_config('pg_trgm.word_similarity_threshold', '0.4', true))
+    SELECT id, name, brand, category, subcategory, price_cents, unit, in_stock,
+           word_similarity($1, name) AS rank,
+           name AS snippet
+    FROM products, cfg
+    WHERE $1 <% name
+      AND ($2::text IS NULL OR category = $2)
+    ORDER BY rank DESC
+    LIMIT $3`;
+  const { rows } = await pool.query<SearchHit>(sql, [q, category ?? null, limit]);
+  return rows;
+}
+```
 
 Search "Choclate" → still finds Chocolate. Search "milj" → now also finds Milk.
 
-**2b — autocomplete.** Implement `suggest()` (prefix match on `name`). The
-`/api/suggest` endpoint is already wired; add a datalist to the UI if you have time.
+---
 
-Compare your file against `solutions/search.ts` to confirm.
+**2b — autocomplete.**
+
+`suggest()` powers the dropdown as you type. The query finds names that contain your
+input, then ranks them so prefix matches come first:
+
+```sql
+SELECT name FROM (
+  SELECT DISTINCT name FROM products
+  WHERE immutable_unaccent(name) ILIKE '%' || immutable_unaccent($1) || '%'
+) matches
+ORDER BY
+  CASE
+    WHEN immutable_unaccent(name) ILIKE immutable_unaccent($1) || '%' THEN 0
+    WHEN immutable_unaccent(name) ILIKE '% ' || immutable_unaccent($1) || '%' THEN 1
+    ELSE 2
+  END,
+  length(name), name
+LIMIT $2
+```
+
+`ILIKE` is a case-insensitive `LIKE`. The `CASE` ranks results: `0` = name starts with
+your query, `1` = your query matches at a word boundary, `2` = matched anywhere else.
+
+Your `suggest` function should look like this:
+
+```ts
+export async function suggest(prefix: string, limit = 8): Promise<string[]> {
+  if (!prefix.trim()) return [];
+  const { rows } = await pool.query<{ name: string }>(
+    `SELECT name FROM (
+       SELECT DISTINCT name FROM products
+       WHERE immutable_unaccent(name) ILIKE '%' || immutable_unaccent($1) || '%'
+     ) matches
+     ORDER BY
+       CASE
+         WHEN immutable_unaccent(name) ILIKE immutable_unaccent($1) || '%' THEN 0
+         WHEN immutable_unaccent(name) ILIKE '% ' || immutable_unaccent($1) || '%' THEN 1
+         ELSE 2
+       END,
+       length(name), name
+     LIMIT $2`,
+    [prefix, limit],
+  );
+  return rows.map((r) => r.name);
+}
+```
+
+Compare your file against `solutions/search.ts` to confirm everything matches.
 
 ## Step 3 — Stretch goals (remaining time)
 
