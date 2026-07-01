@@ -1,0 +1,4 @@
+# Grocery synonym mappings for the workshop.
+# Format: input_phrase : indexed_phrase
+# Both sides are normalised through the english_stem sub-dictionary.
+softdrink : cola

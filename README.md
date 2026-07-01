@@ -398,21 +398,126 @@ export async function suggest(prefix: string, limit = 8): Promise<string[]> {
 
 Compare your file against `solutions/search.ts` to confirm everything matches.
 
-## Step 3 — Stretch goals (remaining time)
+## Step 3 — Synonyms & benchmark
 
-- **Synonyms:** create a custom text-search dictionary so "softdrink" matches "cola".
-- **Compound words:** install an `ispell`/compound-word dictionary so `milk` matches
-  `Wholemilk`/`Oatmilk`. By default `to_tsvector('english', 'Wholemilk')` produces the
-  single lexeme `wholemilk`, so a search for `milk` won't match it — splitting compounds
-  needs extra dictionary setup. A great "now you see why Elasticsearch exists" moment.
-- **Pagination & price filter** in the API.
-- **Run the benchmark at 200k:** Terminal 1 is still busy running `npm run dev`, so
-  open a **new terminal** for this one:
-  ```bash
-  npm run generate -- 200000 && npm run seed && npm run benchmark
-  ```
+**3a — teach PostgreSQL that "softdrink" means "cola".**
+
+Try searching "softdrink" — no results. The word doesn't appear in any product name or
+description (only in internal tags, which aren't indexed). You'll fix this by adding a
+custom text search configuration that maps "softdrink" → "cola" so both sides match.
+
+The key rule: **the index and the query must use the same text search configuration.**
+That means you'll need to update both `search_doc` and the queries in `search.ts`.
+
+---
+
+**Part 1 — the synonym file.**
+
+Open `db/synonyms.ths` — it already exists in the repo:
+
+```
+softdrink : cola
+```
+
+Left side = the word to catch. Right side = the canonical term to store and match
+against. Add more pairs if you like (e.g. `yoghurt : yogurt`). Each line is one
+mapping; `#` lines are comments.
+
+---
+
+**Part 2 — install the file in the database.**
+
+Copy the file into the Postgres container, then open psql:
+
+```bash
+docker cp db/synonyms.ths search_workshop_db:/usr/share/postgresql/16/tsearch_data/synonyms.ths
+docker compose exec db psql -U workshop knuspr
+```
+
+Run each of the following statements one at a time:
+
+```sql
+-- Register the .ths file as a PostgreSQL dictionary.
+-- The 'Dictionary' sub-dictionary (english_stem) normalises words before matching,
+-- so "softdrinks" and "softdrink" both hit the same rule.
+CREATE TEXT SEARCH DICTIONARY synonyms_dict (
+  TEMPLATE = thesaurus,
+  DictFile = synonyms,
+  Dictionary = pg_catalog.english_stem
+);
+```
+
+```sql
+-- Create a new text search configuration that is a copy of 'english',
+-- then layer the synonym dictionary on top of the standard stemmer.
+CREATE TEXT SEARCH CONFIGURATION my_english (COPY = pg_catalog.english);
+
+ALTER TEXT SEARCH CONFIGURATION my_english
+  ALTER MAPPING FOR asciiword, word, hword, hword_part
+  WITH synonyms_dict, english_stem;
+```
+
+```sql
+-- Verify: "softdrink" should now resolve to the lexeme 'cola'.
+SELECT plainto_tsquery('my_english', 'softdrink');
+```
+
+Exit with `\q`.
+
+---
+
+**Part 3 — rebuild the search index.**
+
+The `search_doc` generated column is hardcoded to `'english'`. Drop and recreate it
+using `'my_english'`. A script is provided:
+
+```bash
+docker compose exec -T db psql -U workshop knuspr < db/alter-search.sql
+```
+
+> 🪟 **PowerShell:** `Get-Content db/alter-search.sql | docker compose exec -T db psql -U workshop knuspr`
+
+PostgreSQL automatically recomputes all 20 000 rows and rebuilds the GIN index — takes
+a few seconds. You may see a brief error in the browser while it runs; that's normal.
+
+---
+
+**Part 4 — update `search.ts`.**
+
+Find every `'english'` string inside `searchProducts` and change it to `'my_english'`.
+There are exactly two — one in `websearch_to_tsquery` and one in `ts_headline`:
+
+```ts
+// Before:
+websearch_to_tsquery('english', immutable_unaccent($1)) AS q
+ts_headline('english', description, q, ...)
+
+// After:
+websearch_to_tsquery('my_english', immutable_unaccent($1)) AS q
+ts_headline('my_english', description, q, ...)
+```
+
+Save and reload the browser. Search "softdrink" → Cola Zero products appear. Search
+"cola" → same results as before.
+
+> Why both places? The configuration is what maps "softdrink" → "cola". The index uses
+> it to store "cola" for documents that say "softdrink". The query uses it to search for
+> "cola" when the user types "softdrink". If they don't match, nothing works.
+
+---
+
+**3b — benchmark at 200k rows.**
+
+> 💻 Open a **new terminal** — keep the dev server running in the other one.
+
+```bash
+npm run generate -- 200000 && npm run seed && npm run benchmark
+```
+
+Seeding takes about a minute. Then watch the numbers — even at 200 000 rows, the
+GIN-indexed queries stay in single-digit milliseconds.
 
 ## Done
 
-You built a real search index: ranked, highlighted, typo-tolerant, faceted search over
-20k products — entirely inside PostgreSQL, driven from TypeScript, all in Docker.
+You built a real search index: ranked, highlighted, typo-tolerant, faceted, and
+synonym-aware — entirely inside PostgreSQL, driven from TypeScript, all in Docker.
